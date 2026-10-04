@@ -44,6 +44,7 @@ try{
  await json(audio,removal,'DELETE',403,other);await json(audio,{...removal,expectedAudio:'0'.repeat(64)},'DELETE',409);
  await json(audio,removal,'DELETE');await json(audio,removal,'DELETE');await bytes(audio,404);
  await put(audio,wave,200,admin,audioHeaders);await json(audio,removal,'DELETE');assert.deepEqual((await bytes(audio)).data,wave);
+ for(const text of ['', ' \n\t　'])await json('/api/wishes/'+wish.id+'/submit',{display_name:'云端语音验收',text,expectedVersion:1,operation_id:randomUUID()},'POST',422);
  await json('/api/wishes/'+wish.id+'/submit',{display_name:'云端语音验收',text:'R2 实际语音测试',expectedVersion:1,operation_id:randomUUID()});
  await put(audio,wave,409,admin,audioHeaders);
  await json(audio,{...removal,operation_id:randomUUID()},'DELETE',409);

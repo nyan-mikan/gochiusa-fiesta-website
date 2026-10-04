@@ -56,7 +56,9 @@ try{
  await request('/api/wishes/'+audioWish.id+'/audio',undefined,owner.cookie,'GET',404);
  const range=await fetch(origin+'/api/wishes/'+audioWish.id+'/audio',{headers:{Cookie:admin.cookie,Range:'bytes=0-43'}});assert.equal(range.status,206);assert.equal(range.headers.get('content-type'),'audio/wav');assert.deepEqual(Buffer.from(await range.arrayBuffer()),wave.subarray(0,44));checks++;
  const invalidRange=await fetch(origin+'/api/wishes/'+audioWish.id+'/audio',{headers:{Cookie:admin.cookie,Range:'bytes=999999-'}});assert.equal(invalidRange.status,416);checks++;
- await request('/api/wishes/'+audioWish.id+'/submit',{display_name:'语音管理员',text:'',expectedVersion:1,operation_id:randomUUID()},admin.cookie);
+ for(const text of ['', ' \n\t　'])await request('/api/wishes/'+audioWish.id+'/submit',{display_name:'语音管理员',text,expectedVersion:1,operation_id:randomUUID()},admin.cookie,'POST',422);
+ const retained=(await request('/api/wishes?event_id='+event.id,undefined,admin.cookie)).v.items.find(w=>w.id===audioWish.id);assert.equal(retained.status,'draft');assert.equal(retained.version,1);assert.ok(retained.filename);
+ await request('/api/wishes/'+audioWish.id+'/submit',{display_name:'语音管理员',text:'新年快乐！',expectedVersion:1,operation_id:randomUUID()},admin.cookie);
  await wishAudioRequest(audioWish.id,wave,admin.cookie,409);
  const voices=(await request('/api/admin/wishes?event_id='+event.id,undefined,admin.cookie)).v;assert.equal(voices.total,2);assert.equal(voices.items.find(w=>w.id===audioWish.id).filename,'新年_祝福.wav');assert.equal(voices.audio_ready,true);
  async function zip(kind,ids){const r=await fetch(origin+'/api/admin/wishes/export?'+new URLSearchParams({event_id:event.id,kind,...(ids?{ids:ids.join(',')}:{})}),{headers:{Cookie:admin.cookie}});assert.equal(r.status,200);assert.equal(r.headers.get('content-type'),'application/zip');checks++;return unzipSync(new Uint8Array(await r.arrayBuffer()));}
@@ -75,7 +77,7 @@ try{
  await request(replacementPath,undefined,admin.cookie,'GET',404);await wishAudioRequest(replacement.id,changedWave,admin.cookie);
  await request(replacementPath,remove,admin.cookie,'DELETE');
  const replaced=await fetch(origin+replacementPath,{headers:{Cookie:admin.cookie}});assert.deepEqual(Buffer.from(await replaced.arrayBuffer()),changedWave);checks++;
- await request('/api/wishes/'+replacement.id+'/submit',{display_name:'替换音频',text:'',expectedVersion:1,operation_id:randomUUID()},admin.cookie);
+ await request('/api/wishes/'+replacement.id+'/submit',{display_name:'替换音频',text:'新年快乐！',expectedVersion:1,operation_id:randomUUID()},admin.cookie);
  await request(replacementPath,{...remove,operation_id:randomUUID(),expectedAudio:createHash('sha256').update(changedWave).digest('hex')},admin.cookie,'DELETE',409);
  assert.equal((await request('/api/admin/wishes/export-check?'+new URLSearchParams({event_id:event.id,kind:'text',search:'心想'}),undefined,admin.cookie)).v.count,1);
  await request('/api/admin/wishes/export-check?'+new URLSearchParams({event_id:event.id,kind:'text',search:'绝对没有的文本'}),undefined,admin.cookie,'GET',422);
