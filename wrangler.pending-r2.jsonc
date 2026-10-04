@@ -1,0 +1,160 @@
+// Temporary deployment configuration while the Cloudflare account has not enabled R2.
+// Use wrangler.jsonc after creating the staging/production upload buckets.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "gochiusa-fiesta-local",
+  "account_id": "b552cfd5f92c6a2c000494ad9b6d474a",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "send_metrics": false,
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "ENVIRONMENT": "development",
+    "MAIL_PROVIDER": "local",
+    "APP_ORIGIN": "http://localhost:8787",
+    "MAIL_FROM": "noreply@usagi.mikanyan.com",
+    "MAIL_TEST_ENDPOINT": "http://127.0.0.1:8025/messages",
+    "SMTP_HOST": "",
+    "SMTP_USER": ""
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gochiusa-fiesta-local",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SCRIPT_ROOMS",
+        "class_name": "ScriptRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1-script-room",
+      "new_sqlite_classes": [
+        "ScriptRoom"
+      ]
+    }
+  ],
+  "env": {
+    "staging": {
+      "name": "gochiusa-fiesta-staging",
+      "workers_dev": true,
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "MAIL_PROVIDER": "unconfigured",
+        "APP_ORIGIN": "https://gochiusa-fiesta-staging.nyan-mikan.workers.dev",
+        "MAIL_FROM": "noreply@usagi.mikanyan.com",
+        "MAIL_TEST_ENDPOINT": "",
+        "SMTP_HOST": "",
+        "SMTP_USER": ""
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "gochiusa-fiesta-staging",
+          "database_id": "2dd9d0be-2e48-4ae1-8492-cc77893f1d3f",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "SCRIPT_ROOMS",
+            "class_name": "ScriptRoom"
+          }
+        ]
+      },
+      "send_email": [
+        {
+          "name": "EMAIL"
+        }
+      ],
+      "secrets": {
+        "required": [
+          "AUTH_CODE_SECRET"
+        ]
+      }
+    },
+    "production": {
+      "name": "gochiusa-fiesta-production",
+      "workers_dev": false,
+      "vars": {
+        "ENVIRONMENT": "production",
+        "MAIL_PROVIDER": "smtp",
+        "APP_ORIGIN": "https://usagi.mikanyan.com",
+        "MAIL_FROM": "gochi_fiesta@yeah.net",
+        "MAIL_TEST_ENDPOINT": "",
+        "SMTP_HOST": "smtp.yeah.net",
+        "SMTP_USER": "gochi_fiesta@yeah.net"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "gochiusa-fiesta-production",
+          "database_id": "29305c64-b1fc-44f9-8ac4-b7d13bddcdb9",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "SCRIPT_ROOMS",
+            "class_name": "ScriptRoom"
+          }
+        ]
+      },
+      "send_email": [
+        {
+          "name": "EMAIL"
+        }
+      ],
+      "routes": [
+        {
+          "pattern": "usagi.mikanyan.com",
+          "custom_domain": true
+        }
+      ],
+      "secrets": {
+        "required": [
+          "AUTH_CODE_SECRET",
+          "SMTP_PASSWORD"
+        ]
+      }
+    }
+  },
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "*/2 * * * *"
+    ]
+  },
+  "secrets": {
+    "required": [
+      "AUTH_CODE_SECRET",
+      "MAIL_API_TOKEN"
+    ]
+  }
+}

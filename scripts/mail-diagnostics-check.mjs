@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {smtpDiagnostic} from '../src/worker/services/mail-diagnostics.ts';
+assert.equal(smtpDiagnostic({code:'EAUTH',command:'AUTH LOGIN',responseCode:535,response:'535 authentication failed'}).auth_reason,'auth_rejected');
+assert.equal(smtpDiagnostic({code:'EAUTH',command:'AUTH PLAIN',responseCode:535,response:'535 too many attempts'}).auth_reason,'auth_rate_limited');
+assert.equal(smtpDiagnostic({code:'EAUTH',command:'API'}).auth_reason,'client_auth_configuration');
+const privateData='private@example.test secret-password';
+const output=JSON.stringify(smtpDiagnostic({code:privateData,command:privateData,response:privateData,message:privateData,responseCode:999}));
+assert.ok(!output.includes('private')&&!output.includes('secret'));
+assert.deepEqual(smtpDiagnostic(null),{event:'smtp_failure',code:'UNKNOWN',response_code:undefined,command:undefined,auth_reason:undefined});
+console.log('PASS: SMTP diagnostics distinguish authentication failures and exclude private message data.');

@@ -1,0 +1,5 @@
+<script setup lang="ts">
+defineProps<{name:string}>();
+const paths:Record<string,string[]>={wishes:['M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z'],review:['M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4','m9 11 3 3L22 4','M7 17h5'],program:['M4 5h16M4 12h16M4 19h16','M8 3v4M16 10v4M10 17v4'],script:['M4 4h16v13H8l-4 4V4','M8 8h8M8 12h5'],characters:['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2','M16 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87'],settings:['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8','M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2'],users:['M12 3 3 7v6c0 5 9 9 9 9s9-4 9-9V7l-9-4','m8 12 3 3 5-6'],submit:['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6','M14 2v6h6M12 11v7M8.5 14.5h7']};
+</script>
+<template><svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle v-if="name==='characters'" cx="9" cy="7" r="4"/><path v-for="(path,i) in paths[name]" :key="i" :d="path"/></svg></template>

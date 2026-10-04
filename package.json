@@ -1,0 +1,44 @@
+{
+  "name": "gochiusa-fiesta",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "npm run build && wrangler dev --local --port 8787",
+    "build": "vite build",
+    "types": "wrangler types",
+    "typecheck": "vue-tsc --noEmit",
+    "check": "npm run types && npm run typecheck && npm run build && npm run deploy:check",
+    "deploy:check": "wrangler deploy --env staging --dry-run",
+    "deploy:check:staging": "wrangler deploy --env staging --dry-run",
+    "deploy:check:production": "wrangler deploy --env production --dry-run",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:staging": "wrangler d1 migrations apply DB --env staging --remote",
+    "db:migrate:production": "wrangler d1 migrations apply DB --env production --remote",
+    "smoke": "node scripts/smoke.mjs",
+    "test:script-merge": "node --experimental-strip-types scripts/script-reconcile-check.mjs",
+    "test:integration": "npm run build && npm run db:migrate:local && node scripts/integration.mjs",
+    "mailbox": "node scripts/local-mailbox.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.3",
+    "@types/nodemailer": "^8.0.2",
+    "@vitejs/plugin-vue": "6.0.9",
+    "typescript": "6.0.3",
+    "vite": "8.3.2",
+    "vue-tsc": "3.3.11",
+    "wrangler": "4.146.0",
+    "ws": "^8.22.0"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "hono": "4.13.12",
+    "nodemailer": "^10.0.13",
+    "vue": "3.5.43",
+    "vue-router": "5.3.1",
+    "zod": "4.6.5"
+  }
+}
