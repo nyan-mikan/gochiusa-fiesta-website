@@ -203,3 +203,7 @@ Cloudflare R2 查询仍返回账号未开通 10042；真实云端音频上传未
 真实 staging R2 验收 51 项通过，包含带音频但文本为空/仅空白时拒绝提交；临时账号已停用、会话撤销、活动关闭、测试对象清理。
 
 正式发布后 18 项 smoke 通过，投稿与祝福语管理两个页面的线上 JS 均逐字节匹配构建。
+
+## 2026-10-05 Codex Cloud preparation
+
+Committed portable cloud setup and AGENTS.md handoff, and changed the principal test/admin scripts to use the operating system temporary directory. Installation, typecheck, build, 337 integration checks, 30 script reconciliation checks, and 13 drop/chooser checks passed locally. The actual Codex Cloud workspace independently passed the same checks and 18 startup smoke checks on Node.js 24.19.0. Environment configuration was saved and published; UI confirmed Environment published / Published, repository association, Only me privacy, package-manager network preset, and no added production credentials. Screenshot: screenshots/codex-cloud-published.png. No production deployment or data migration was performed in this preparation.
