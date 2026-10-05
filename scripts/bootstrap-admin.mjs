@@ -9,5 +9,5 @@ try{
  if(requestedRole==='super_admin')query+=`\nINSERT INTO user_capabilities(user_id,capability,granted_by,granted_at) SELECT id,'manage_admins',id,${q(time)} FROM users WHERE email=${q(normalized)} ON CONFLICT(user_id,capability) DO NOTHING;`;
  query+=`\nINSERT INTO audit_logs(id,actor_id,object_type,object_id,action,summary,created_at) SELECT ${q(randomUUID())},id,'user',id,'admin.bootstrap',${q(JSON.stringify({source:'controlled_cli',email:normalized,requested_role:requestedRole}))},${q(time)} FROM users WHERE email=${q(normalized)};`;
  writeFileSync(file,query,{mode:0o600});
- execFileSync(process.execPath,['node_modules/wrangler/bin/wrangler.js','d1','execute','DB',...(environment==='local'?['--local']:['--env',environment,'--remote']),'--file',file],{stdio:'inherit',env:{...process.env,WRANGLER_LOG_PATH:'/private/tmp/gochiusa-wrangler-logs',...(environment==='local'?{XDG_CONFIG_HOME:'/private/tmp/gochiusa-wrangler-local'}:{})}});
+ execFileSync(process.execPath,['node_modules/wrangler/bin/wrangler.js','d1','execute','DB',...(environment==='local'?['--local']:['--env',environment,'--remote']),'--file',file],{stdio:'inherit',env:{...process.env,WRANGLER_LOG_PATH:join(tmpdir(),'gochiusa-wrangler-logs'),...(environment==='local'?{XDG_CONFIG_HOME:join(tmpdir(),'gochiusa-wrangler-local')}:{})}});
 }finally{rmSync(dir,{recursive:true,force:true});}

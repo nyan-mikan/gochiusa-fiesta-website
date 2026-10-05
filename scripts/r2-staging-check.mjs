@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {unzipSync} from 'fflate';
 const origin='https://gochiusa-fiesta-staging.nyan-mikan.workers.dev';
 const bucket='gochiusa-fiesta-staging-uploads',dir=mkdtempSync(join(tmpdir(),'usagi-r2-check-'));
-const cliEnv={...process.env,WRANGLER_LOG_PATH:'/private/tmp/gochiusa-wrangler-logs',WRANGLER_SEND_METRICS:'false'};
+const cliEnv={...process.env,WRANGLER_LOG_PATH:join(tmpdir(),'gochiusa-wrangler-logs'),WRANGLER_SEND_METRICS:'false'};
 const q=s=>"'"+s.replaceAll("'","''")+"'";
 const admin={id:randomUUID(),token:randomBytes(32).toString('hex'),role:'admin'};
 const other={id:randomUUID(),token:randomBytes(32).toString('hex'),role:'submitter'};

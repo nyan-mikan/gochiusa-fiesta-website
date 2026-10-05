@@ -1,10 +1,11 @@
+import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {dialogueChecks} from './dialogue-checks.mjs';
 import {automaticScriptChecks} from './automatic-script-checks.mjs';
 import {unzipSync,strFromU8} from 'fflate';
 import {createServer} from 'node:http';import {execFileSync,spawn} from 'node:child_process';import assert from 'node:assert/strict';import {randomUUID,createHash} from 'node:crypto';import {once} from 'node:events';import WebSocket from 'ws';
 const origin='http://localhost:8787',suffix=randomUUID().slice(0,8),mail=[];let checks=0;
 const server=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;if(req.method==='POST'&&req.url==='/messages'){const value=JSON.parse(body);if(!mail.some(m=>m.key===value.key))mail.push(value);res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({id:'local-'+mail.length}));}else{res.writeHead(404);res.end();}});server.listen(8025,'127.0.0.1');await once(server,'listening');
-const env={...process.env,XDG_CONFIG_HOME:'/private/tmp/gochiusa-wrangler-local',WRANGLER_LOG_PATH:'/private/tmp/gochiusa-wrangler-logs',WRANGLER_SEND_METRICS:'false'};
+const env={...process.env,XDG_CONFIG_HOME:join(tmpdir(),'gochiusa-wrangler-local'),WRANGLER_LOG_PATH:join(tmpdir(),'gochiusa-wrangler-logs'),WRANGLER_SEND_METRICS:'false'};
 const worker=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--local','--port','8787'],{env,stdio:['ignore','pipe','pipe']});let output='';worker.stdout.on('data',x=>output+=x);worker.stderr.on('data',x=>output+=x);
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 async function request(path,data,cookie='',method=data===undefined?'GET':'POST',expected=200){const r=await fetch(origin+path,{method,headers:{'CF-Connecting-IP':'203.0.113.'+(parseInt(suffix.slice(0,6),16)%254+1),...(data!==undefined?{'Content-Type':'application/json','Origin':origin,'X-Requested-With':'usagi'}:{}),...(cookie?{Cookie:cookie}:{})},body:data===undefined?undefined:JSON.stringify(data),redirect:'manual'});const body=await r.text();assert.equal(r.status,expected,`${method} ${path}: ${r.status} ${body}`);checks++;return {r,v:r.headers.get('content-type')?.includes('application/json')?JSON.parse(body):body};}
