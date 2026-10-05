@@ -207,3 +207,13 @@ Cloudflare R2 查询仍返回账号未开通 10042；真实云端音频上传未
 ## 2026-10-05 Codex Cloud preparation
 
 Committed portable cloud setup and AGENTS.md handoff, and changed the principal test/admin scripts to use the operating system temporary directory. Installation, typecheck, build, 337 integration checks, 30 script reconciliation checks, and 13 drop/chooser checks passed locally. The actual Codex Cloud workspace independently passed the same checks and 18 startup smoke checks on Node.js 24.19.0. Environment configuration was saved and published; UI confirmed Environment published / Published, repository association, Only me privacy, package-manager network preset, and no added production credentials. Screenshot: screenshots/codex-cloud-published.png. No production deployment or data migration was performed in this preparation.
+
+## 2026-10-05 登录页与侧栏调整
+
+登录页宣传区改为圆角卡片，桌面左、上、下边距均为 16px；手机使用 12px 内边距。1440px 与 1920px 浏览器核对了桌面三侧边距，390px 与 320px 视口无横向溢出。
+
+侧栏账户卡片展开后才显示退出按钮，移除展开区域的邮箱信息块。实际本地邮箱验证码登录后，在 1440px、390px、320px 视口验证收起时退出按钮隐藏、键盘展开后可见、再次点击可收起。退出后返回登录页，真实本地会话请求 `/api/me` 返回 401。悬停元素的继承圆角曾实际计算为 0px，改为明确的 13px 圆角后，在上述三个视口验证鼠标悬停仍保持圆角，退出菜单不被裁剪。
+
+移除侧栏 Logo 下方英文名称及各身份的工作台标签，保留 Logo 和功能导航。类型检查、构建通过；最终生产 HTML 和入口 JS 与构建逐字节一致，线上 18 项 smoke 通过。
+
+正式待配置活动 `fiesta-2026` 已停用（active=0、version=2），活动下拉使用的 active=1 查询只返回 `fiesta-2027`。已有 2 份投稿和 6 条主持稿保留，操作写入维护审计，外键检查无异常；此次仅调整活动状态，未删除关联数据或运行远程迁移。
