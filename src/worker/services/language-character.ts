@@ -18,6 +18,10 @@ export interface SpeakerContext {profile_version:number;speakers:{speaker:number
 export async function speakerContext(db:D1Database,line:Line):Promise<SpeakerContext>{
  const ids=dialogueSpeakers(line),chunks=Array.from({length:Math.ceil(ids.length/50)},(_,index)=>ids.slice(index*50,index*50+50));
  const characters=(await Promise.all(chunks.map(ids=>all<Pick<Character,'id'|'stable_key'|'kind'|'name'>>(db,'SELECT id,stable_key,kind,name FROM characters WHERE id IN('+ids.map(()=>'?').join(',')+')',...ids)))).flat();
+ return speakerContextFromCharacters(line,characters);
+}
+export function speakerContextFromCharacters(line:Line,characters:Pick<Character,'id'|'stable_key'|'kind'|'name'>[]):SpeakerContext{
+ const ids=dialogueSpeakers(line);
  // Only known presets enter the review. Unlisted speaker indexes mean no preset,
  // even when a custom character has the same display name as a canonical one.
  return {profile_version:1,speakers:ids.map((id,speaker)=>{const c=characters.find(c=>c.id===id),profile=c?.kind==='builtin'?characterProfiles[c.stable_key]:undefined;return {speaker,name:profile?.name??'未预设角色',preset:profile&&c?c.stable_key:null,personality:profile?.personality??null};}).filter(speaker=>speaker.preset!==null),segments:dialogueSegments(line).map(part=>({text:part.text,speakers:part.speaker_ids.map(id=>ids.indexOf(id))}))};

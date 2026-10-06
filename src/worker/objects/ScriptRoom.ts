@@ -5,6 +5,7 @@ import { actor, all, AppError, first, sessionHash } from '../services/core';
 import { context, scriptMutation, programMutation, characterMutation } from '../services/room';
 import type { Change } from '../../shared/models';
 import {queueLanguageReview,runLanguageReviews} from '../services/script-language';
+import {queueParagraphReview} from '../services/script-paragraph';
 
 // One coordinator per event; D1 remains the source of business data.
 export class ScriptRoom extends DurableObject<Env> {
@@ -18,6 +19,7 @@ export class ScriptRoom extends DurableObject<Env> {
   async program(eventId:string,hash:string,input:unknown,lock=false){return this.reply(()=>this.enqueue(async()=>{const result=await programMutation(this.env,hash,eventId,input,lock);await this.broadcast(eventId,result.seq);return result;}));}
   async characters(eventId:string,hash:string,input:unknown){return this.reply(()=>this.enqueue(async()=>{const result=await characterMutation(this.env,hash,eventId,input);await this.broadcast(eventId,result.seq);return result;}));}
   async languageReview(eventId:string,hash:string,input:unknown){return this.reply(()=>this.enqueue(async()=>{const result=await queueLanguageReview(this.env,eventId,hash,input);if(result?.state==='pending')await this.scheduleLanguageReviews(eventId);return result;}));}
+  async paragraphReview(eventId:string,hash:string,input:unknown){return this.reply(()=>this.enqueue(async()=>{const result=await queueParagraphReview(this.env,eventId,hash,input);if(result?.state==='pending')await this.scheduleLanguageReviews(eventId);return result;}));}
   async scheduleLanguageReviews(eventId:string){await this.ctx.storage.put('languageEventId',eventId);const alarm=await this.ctx.storage.getAlarm();if(alarm===null||alarm>Date.now()+1000)await this.ctx.storage.setAlarm(Date.now()+1000);}
   private async broadcast(eventId:string,seq:number){
     const {p}=await context(this.env,eventId);const change=await first<Change>(this.env.DB,'SELECT seq,type,payload,operation_id FROM program_changes WHERE program_id=? AND seq=?',p.id,seq);

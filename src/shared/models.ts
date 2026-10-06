@@ -46,7 +46,7 @@ export interface Detail {category_name?:string|null;staff_limit?:number|null;sta
 export interface Program {id:string;event_id:string;version:number;change_seq:number;starts_at:string|null;locked:number}
 export interface ProgramItem {id:string;program_id?:string;position:number;revision_id:string|null;custom_name:string|null;custom_type:string|null;custom_duration:number|null;notes:string;title?:string;type?:string;duration_seconds?:number}
 export interface ScriptDocument {id:string;program_id:string;structure_version:number;locked:number;finalized_program_version:number|null;finalized_seq:number|null}
-export interface Block {id:string;document_id:string;title:string;before_program_item_id:string|null;at_end:number;at_start?:number;auto_generated?:number;opening:number;anchor_label:string;position:number;estimated_seconds:number;version:number;deleted_at:string|null}
+export interface Block {id:string;document_id:string;title:string;scene?:string;before_program_item_id:string|null;at_end:number;at_start?:number;auto_generated?:number;opening:number;anchor_label:string;position:number;estimated_seconds:number;version:number;deleted_at:string|null}
 export type LineKind='dialogue'|'comment'|'heading';
 export interface DialogueSegment {text:string;speaker_ids:string[]}
 export interface Line {id:string;block_id:string;kind?:LineKind;speaker_id:string|null;segments?:DialogueSegment[];text:string;direction:string;position:number;version:number;updated_by:string;updated_at:string;deleted_at:string|null}
@@ -69,7 +69,7 @@ export const scriptOperation=z.discriminatedUnion('type',[
  z.object({...operationBase,type:z.literal('line.delete'),id,expectedVersion:ver,blockVersion:ver}).strict(),
  z.object({...operationBase,type:z.literal('line.reorder'),block_id:id,expectedVersion:ver,ids:z.array(id).max(500)}).strict(),
  z.object({...operationBase,type:z.literal('block.add'),id,expectedVersion:ver,title:short,before_program_item_id:id.nullable(),at_end:z.boolean(),at_start:z.boolean().optional(),opening:z.boolean()}).strict(),
- z.object({...operationBase,type:z.literal('block.update'),id,expectedVersion:ver,title:short,before_program_item_id:id.nullable(),at_end:z.boolean(),at_start:z.boolean().optional(),position:pos,estimated_seconds:pos,opening:z.boolean()}).strict(),
+ z.object({...operationBase,type:z.literal('block.update'),id,expectedVersion:ver,title:short,scene:z.string().max(500).optional(),before_program_item_id:id.nullable(),at_end:z.boolean(),at_start:z.boolean().optional(),position:pos,estimated_seconds:pos,opening:z.boolean()}).strict(),
  z.object({...operationBase,type:z.literal('block.delete'),id,expectedVersion:ver,documentVersion:ver}).strict(),
  z.object({...operationBase,type:z.literal('script.lock'),expectedVersion:ver,expectedSeq:pos,programVersion:ver,locked:z.boolean(),reason:z.string().max(1000)}).strict(),
 ]);

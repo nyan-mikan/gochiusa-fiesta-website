@@ -21,3 +21,5 @@ D1 batch 在断言/约束失败时整体回滚；不要通过删除 immutable �
 0015_modules_and_dictionary.sql：分区乐观版本、七个管理模块授权与约束。为已有管理员保留原模块，新管理员须由超级管理员分配；职务定义及现有业务内容不变。
 
 0017_language_speaker_context.sql：为每个新审核标识增加不可改写的角色性格及片段发言归属快照。旧审核标识、正文、结果和忽略记录保留，不回填或重发。
+
+0018_paragraph_reviews.sql：追加段落可选场景/地点，及段落审核、冻结台词输入、问题、相关台词和按用户忽略表。台词、单句结果和原忽略记录保留，反馈输入与结果不可改写。使用新段落代码前先应用此增量迁移，详见 [SCRIPT_PARAGRAPH_REVIEW.md](../docs/SCRIPT_PARAGRAPH_REVIEW.md)。

@@ -46,6 +46,7 @@ export async function erpChecks({request,root,admin,owner,login,localSql,event})
  await request(path,undefined,limited.cookie);await request(base+'/characters',undefined,limited.cookie);await request('/admin/apps',undefined,limited.cookie);
  for(const route of [base+'/%73cript','/api/admin/settings',base+'/program',base+'/script','/api/admin/submissions','/api/admin/wishes?event_id='+event.id,'/api/admin/notifications','/admin/script'])await request(route,undefined,limited.cookie,'GET',403);
  await request(base+'/script/operations',{type:'line.delete-many',operation_id:randomUUID(),items:[]},limited.cookie,'POST',403);
+ await request(base+'/script/paragraph-reviews',undefined,limited.cookie,'GET',403);await request(base+'/script/paragraph-reviews',{block_id:'nonexistent',context_key:'stale'},limited.cookie,'POST',403);
  const otherDraft=(await request('/api/submissions',{event_id:event.id,operation_id:randomUUID()},owner.cookie,'POST',201)).v;await request('/api/submissions/'+otherDraft.id,undefined,limited.cookie,'GET',404);
  user=await find();const grant={user_id:user.id,expected_version:user.version,modules:['program'],operation_id:randomUUID()};
  const race=await Promise.all([request('/api/admin/users/modules',grant,root.cookie,'PUT',[200,409]),request('/api/admin/users/modules',{...grant,operation_id:randomUUID()},root.cookie,'PUT',[200,409])]);assert.equal(race.filter(r=>r.r.status===200).length,1,'only one permission editor wins');

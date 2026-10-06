@@ -1,3 +1,4 @@
+import {paragraphBrowserChecks} from './script-paragraph-browser-checks.mjs';
 import {languageBrowserChecks} from './script-language-browser-checks.mjs';
 import {languageFixture,reviewFixtureVars} from './script-language-fixture.mjs';
 import {valueHelpBrowserChecks} from './value-help-browser-checks.mjs';
@@ -66,6 +67,7 @@ try{
  await footerBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
  await valueHelpBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
   await languageBrowserChecks({evaluate,cmd,fill,wait,visible,origin,fixture:reviewFixture});
+ await paragraphBrowserChecks({evaluate,cmd,fill,wait,origin,fixture:reviewFixture});
   await erpBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin,email,env});
  assert.ok(!networkKeys.includes('private_key'));assert.equal(runtimeErrors.length,0);
  console.log('PASS: browser email login, account menu, fresh mailbox verification, actual one-time file download, refresh protection, mobile width, nickname persistence, verified account confirmation/cancel, hidden chooser, native selection, invalid/oversized file rejection and drag/drop private-key login; private key never appears in API payloads.');

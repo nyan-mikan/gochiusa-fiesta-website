@@ -1,3 +1,4 @@
+import {paragraphReviews,ignoreParagraphIssue} from './services/script-paragraph';
 import {canAccess,moduleForChange} from '../shared/modules';
 import {createWish,submitWish,listWishes,uploadWishAudio,removeWishAudio,wishAudio,exportWishes} from './services/wishes';
 import {MAX_WISH_AUDIO_SIZE} from '../shared/wishes';
@@ -82,6 +83,9 @@ app.post('/api/admin/events/:id/script/operations',async c=>c.json(unwrap(await 
 app.get('/api/admin/events/:id/script/language-reviews',async c=>c.json(await languageReviews(c.env,c.get('user'),c.req.param('id'))));
 app.post('/api/admin/events/:id/script/language-reviews',async c=>c.json(unwrap(await room(c,c.req.param('id')).languageReview(c.req.param('id'),c.get('hash'),await c.req.json()))));
 app.put('/api/admin/events/:id/script/language-reviews/:review/ignore',async c=>c.json(await ignoreLanguageIssue(c.env,c.get('user'),c.get('hash'),c.req.param('id'),c.req.param('review'),await c.req.json())));
+app.get('/api/admin/events/:id/script/paragraph-reviews',async c=>c.json(await paragraphReviews(c.env,c.get('user'),c.req.param('id'))));
+app.post('/api/admin/events/:id/script/paragraph-reviews',async c=>c.json(unwrap(await room(c,c.req.param('id')).paragraphReview(c.req.param('id'),c.get('hash'),await c.req.json()))));
+app.put('/api/admin/events/:id/script/paragraph-reviews/:review/ignore',async c=>c.json(await ignoreParagraphIssue(c.env,c.get('user'),c.get('hash'),c.req.param('id'),c.req.param('review'),await c.req.json())));
 app.post('/api/admin/events/:id/script/lock',async c=>c.json(unwrap(await room(c,c.req.param('id')).script(c.req.param('id'),c.get('hash'),{...await c.req.json(),type:'script.lock'}))));
 app.get('/api/admin/events/:id/characters',async c=>{const s=await snapshot(c.env,c.req.param('id'));return c.json({characters:s.characters,lists:s.lists});});
 app.post('/api/admin/events/:id/characters/operations',async c=>c.json(unwrap(await room(c,c.req.param('id')).characters(c.req.param('id'),c.get('hash'),await c.req.json()))));
