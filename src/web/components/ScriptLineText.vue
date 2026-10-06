@@ -19,11 +19,12 @@ function split(index:number){const part=parts.value[index]!,offset=cursors[index
 function join(index:number){const previous=parts.value[index-1]!,current=parts.value[index]!;if(JSON.stringify(previous.speaker_ids)!==JSON.stringify(current.speaker_ids))return;update([...parts.value.slice(0,index-1),{...previous,text:previous.text+current.text},...parts.value.slice(index+1)]);}
 function remember(index:number,event:Event){cursors[index]=(event.target as HTMLTextAreaElement).selectionStart;emit('cursor',index,cursors[index]!);}
 function simple(){const part=parts.value[0];if(!part||parts.value.length!==1||part.speaker_ids.length>1)return;emit('update',{segments:undefined,speaker_id:part.speaker_ids[0]??null,text:part.text});}
+function leaveSpeakers(event:FocusEvent){if((event.target as HTMLElement).matches('input,select')&&!root.value?.contains(event.relatedTarget as Node|null))emit('blur');}
 function resize(){for(const field of root.value?.querySelectorAll('textarea')??[]){field.style.height='auto';field.style.height=Math.min(400,Math.max(44,field.scrollHeight+2))+'px';}}
 watch(()=>props.line.text,()=>void nextTick(resize));watch(()=>props.line.segments,()=>void nextTick(resize),{deep:true});onMounted(()=>void nextTick(resize));
 </script>
 
-<template><div ref="root" class="line-text-editor">
+<template><div ref="root" class="line-text-editor" @focusout="leaveSpeakers">
  <template v-if="!line.segments"><FieldLabel>{{ label }}<textarea :id="id" :aria-label="label" :value="line.text" :disabled="disabled" rows="1" maxlength="5000" :placeholder="kind==='heading'?'写下小标题…':kind==='comment'?'写下注释…':'写下一句台词…'" @input="emit('update',{text:($event.target as HTMLTextAreaElement).value})" @keydown="emit('keydown',$event)" @blur="emit('blur')" @compositionstart="emit('composition',true)" @compositionend="emit('composition',false)"></textarea></FieldLabel><details v-if="kind==='dialogue'&&!disabled" class="speech-settings"><summary>发言设置</summary><button type="button" @click="enable">多人 / 分段</button></details></template>
  <template v-else><div v-for="(part,index) in parts" :key="index" class="speech-part">
   <div class="part-header"><span>片段 {{ index+1 }}</span><details><summary>{{ part.speaker_ids.length?part.speaker_ids.map(name).join('、'):'选择发言角色' }}{{ part.speaker_ids.length>1?' · 合说':'' }}</summary><div class="speaker-options"><FieldLabel v-for="c in choices(part)" :key="c.id" class="check"><input type="checkbox" :checked="part.speaker_ids.includes(c.id)" :disabled="disabled" :aria-label="label+'片段 '+(index+1)+'：'+(c.display_name??c.name)" @change="toggle(index,c.id)"><span :style="{'border-left-color':c.color}">{{ c.display_name??c.name }}</span></FieldLabel></div></details></div>

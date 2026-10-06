@@ -19,3 +19,5 @@ D1 batch 在断言/约束失败时整体回滚；不要通过删除 immutable �
 0014_account_and_deletion 新增账号昵称、草稿删除标记和私钥识别用途。追加触发器限制每账号每活动一则新祝福语，保护已提交历史，禁止在已删除草稿上创建上传任务；既有数据保留，详见 [ACCOUNT_AND_DELETION.md](../docs/ACCOUNT_AND_DELETION.md)。
 
 0015_modules_and_dictionary.sql：分区乐观版本、七个管理模块授权与约束。为已有管理员保留原模块，新管理员须由超级管理员分配；职务定义及现有业务内容不变。
+
+0017_language_speaker_context.sql：为每个新审核标识增加不可改写的角色性格及片段发言归属快照。旧审核标识、正文、结果和忽略记录保留，不回填或重发。
