@@ -1,5 +1,7 @@
 # D1 迁移
 
+0016_script_language_reviews 追加主持稿语言审核、问题与逐用户忽略关系表，唯一约束固定台词版本和审核标识，触发器保护输入及终态反馈。只增加表/索引/约束，不更新现有台词或其他生产资料；首次部署语言审核代码前应用。配置与数据流见 [SCRIPT_LANGUAGE_REVIEW.md](../docs/SCRIPT_LANGUAGE_REVIEW.md)。
+
 依次应用：0001_core（3NF 关系、版本与状态约束），0002_catalog（关闭的待配置活动、35 位作品角色和旁白），0003_integrity（角色引用约束、限流过期字段），0004_program_shape（临时节目必填形态），0005_administrator_management（账号权限版本、超级管理员能力与保护约束）。0006_submission_experience（私有文件、活动字典及其他说明），0007_official_character_colors（主要角色主题色），0008_script_entry_kinds（台词/注释/小标题，归档旁白并保留文字历史）。0009_wishes（祝福语文本、私有音频关联、独立开放开关及冻结约束）。本地、staging、production 使用同一结构。
 
 ```sh

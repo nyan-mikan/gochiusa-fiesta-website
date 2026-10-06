@@ -1,0 +1,6 @@
+interface Env {
+ SCRIPT_REVIEW_API_URL?:string;
+ SCRIPT_REVIEW_API_KEY?:string;
+ SCRIPT_REVIEW_MODEL?:string;
+ SCRIPT_REVIEW_REASONING_EFFORT?:string;
+}

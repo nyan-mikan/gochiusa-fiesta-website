@@ -1,3 +1,5 @@
+import {languageBrowserChecks} from './script-language-browser-checks.mjs';
+import {languageFixture,reviewFixtureVars} from './script-language-fixture.mjs';
 import {valueHelpBrowserChecks} from './value-help-browser-checks.mjs';
 import {footerBrowserChecks} from './footer-browser-checks.mjs';
 import {erpBrowserChecks} from './erp-browser-checks.mjs';
@@ -13,9 +15,9 @@ const env={...process.env,XDG_CONFIG_HOME:'/tmp/gochiusa-wrangler-local',WRANGLE
 const children=[],start=(cmd,args)=>{const p=spawn(cmd,args,{env,stdio:'ignore'});children.push(p);return p;};
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 async function wait(fn,label){for(let i=0;i<100;i++){try{if(await fn())return;}catch{}await pause(100);}throw new Error('Timed out: '+label);}
-let socket;
+let socket;const reviewFixture=await languageFixture();
 try{
- start(process.execPath,['scripts/local-mailbox.mjs']);start(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--local','--port','8787']);
+ start(process.execPath,['scripts/local-mailbox.mjs']);start(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--local','--port','8787',...reviewFixtureVars]);
  start('/usr/bin/chromium',['--headless','--no-sandbox','--disable-dev-shm-usage','--remote-debugging-port=9224','--user-data-dir='+join(dir,'profile'),'about:blank']);
  await wait(async()=>{const r=await fetch(origin+'/api/health');return r.ok;},'local worker');
  await wait(async()=>{const r=await fetch('http://127.0.0.1:9224/json/version');return r.ok;},'browser');
@@ -30,7 +32,7 @@ try{
  const submit=()=>evaluate(`document.querySelector('.login-panel form,.private-key-card form').requestSubmit()`);
  const visible=text=>evaluate(`document.body.innerText.includes(${JSON.stringify(text)})`);
  const mailbox=async purpose=>{const messages=await (await fetch('http://127.0.0.1:8025/messages?to='+encodeURIComponent(email))).json();return messages.filter(m=>m.key.startsWith(purpose)).at(-1)?.text.match(/[0-9]{6}/)?.[0];};
- await cmd('Page.enable');await cmd('Runtime.enable');await cmd('Network.enable');await cmd('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:downloadDir});
+ await cmd('Page.enable');await cmd('Page.bringToFront');await cmd('Runtime.enable');await cmd('Network.enable');await cmd('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:downloadDir});
  await cmd('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
  await cmd('Page.navigate',{url:origin+'/login'});await wait(()=>evaluate(`!!document.querySelector('input[type=email]')`),'email UI');
  await fill('input[type=email]',email);await submit();await wait(()=>evaluate(`!!document.querySelector('input[autocomplete=one-time-code]')`),'login code UI');
@@ -63,7 +65,8 @@ try{
  await accountFeaturesBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin,email,env});
  await footerBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
  await valueHelpBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
+  await languageBrowserChecks({evaluate,cmd,fill,wait,visible,origin,fixture:reviewFixture});
   await erpBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin,email,env});
  assert.ok(!networkKeys.includes('private_key'));assert.equal(runtimeErrors.length,0);
  console.log('PASS: browser email login, account menu, fresh mailbox verification, actual one-time file download, refresh protection, mobile width, nickname persistence, verified account confirmation/cancel, hidden chooser, native selection, invalid/oversized file rejection and drag/drop private-key login; private key never appears in API payloads.');
-}catch(error){console.error(error.message);console.error(error.stack?.split('\n').slice(1,4).join('\n'));process.exitCode=1;}finally{socket?.close();for(const p of children)p.kill('SIGTERM');await pause(700);await rm(dir,{recursive:true,force:true});}
+}catch(error){console.error(error.message);console.error(error.stack?.split('\n').slice(1,4).join('\n'));process.exitCode=1;}finally{socket?.close();for(const p of children)p.kill('SIGTERM');await pause(700);await rm(dir,{recursive:true,force:true});await reviewFixture.close();}
