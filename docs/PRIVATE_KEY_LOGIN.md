@@ -19,3 +19,5 @@
 运行 `npm run typecheck`、`npm run test:integration`、`node scripts/file-dropzone-check.cjs`。集成测试使用实际本地 D1、Worker 和 loopback 邮箱，覆盖生成、更换、邮箱找回、账号/会话绑定、签名、挑战重放与并发消费、过期、五次错误上限、IP、禁用账号和旧会话失效。为了避免等待发送间隔，测试只调整合成账号的本地时间/限流记录，不涉及远程数据。
 
 有 Chromium 的 Linux 环境可额外运行 `node scripts/private-key-browser-check.mjs`（需要空闲的 8787、8025、9224 端口）。浏览器检查真实邮箱登录、账号菜单、实际一次性下载、未下载离页提醒、刷新后不可重下、390px 布局、文件选择/拖入和格式/大小拒绝，并核对 API 请求中没有私钥。测试临时下载文件与浏览器配置在结束后删除。
+
+正式发布后可运行 `node scripts/smoke.mjs https://usagi.mikanyan.com` 和 `node scripts/private-key-production-check.mjs`。后者比较本地 dist 与线上私钥相关资源，并检查匿名保护、无效字段和 CSRF 拒绝，不创建生产测试账号、密钥或发送邮件。

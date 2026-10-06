@@ -224,4 +224,10 @@ Committed portable cloud setup and AGENTS.md handoff, and changed the principal 
 
 Chromium 真实浏览器流程通过：邮箱登录、侧栏账号设置、独立领取验证码、实际一次性下载、未下载离页提醒、刷新后不可重下、390px 手机页宽、原生文件选择与拖入登录、损坏及超大文件拒绝。API 请求字段检查确认没有私钥，测试下载文件与浏览器配置结束后删除。本次使用本地 D1、Worker 和 loopback 邮箱，没有发送真实邮件或写入生产数据。
 
-production 配置 Worker `--dry-run` 打包通过，绑定保持现有配置。新增 0013 只在本地应用；当前云端 Wrangler OAuth 未登录（whoami 已确认），没有执行远程迁移或线上部署。上线需重新连接 Cloudflare Auth，先应用追加迁移，再发布已验证的 Worker。
+production 配置 Worker `--dry-run` 打包通过，绑定保持现有配置。本地验收阶段，0013 只在本地应用，云端 Wrangler OAuth 当时未登录；随后已按维护者上线要求完成下述发布。
+
+## 2026-10-06 私钥登录正式发布
+
+维护者明确要求上线后，通过 Wrangler OAuth 设备授权恢复 Cloudflare Auth，核对账户和 production 数据库，只追加 0013 四张认证表和索引，然后发布代码提交 `6e09f63`。production Worker 版本为 `9dfde7fe-7451-4821-87f5-3e251359e29d`。18 项常规 smoke 与 19 项私钥专项线上检查通过，登录 HTML 和九个账号设置/私钥相关 JS/CSS 文件逐字节匹配已通过本地浏览器验证的构建。专项检查脚本为 `scripts/private-key-production-check.mjs`。
+
+production D1 已只读核对迁移记录和四张表，PRAGMA foreign_key_check 无异常；发布前后用户、投稿、主持稿和祝福语记录数量一致。现有 SMTP、D1、R2、DO、域名及定时任务保留，没有创建付费服务、生产测试身份或密钥，没有发送真实测试邮件。本次正式检查覆盖页面/资源、匿名账号保护、无效私钥请求校验和 CSRF 拒绝；真实邮箱验证、领取和轮换完整流程的验收在本地 loopback 邮箱完成，不将线上拒绝检查当作真实邮件送达确认。
