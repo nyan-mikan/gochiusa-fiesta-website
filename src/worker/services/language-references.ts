@@ -9,7 +9,7 @@ export async function referenceCatalog(db:D1Database,eventId:string):Promise<Ref
  return {version:1,characters:rows.map(row=>({name:row.display_name,aliases:[...new Set([row.name,row.japanese_name,...JSON.parse(row.aliases_json) as string[]])].filter(Boolean)}))};
 }
 const normalize=(value:string)=>value.normalize('NFKC').trim().toLocaleLowerCase('en-US');
-const pronounsAndTitles=new Set(('我 你 您 他 她 它 我们 咱们 你们 您们 他们 她们 它们 大家 各位 诸位 各位观众 观众朋友们 小可爱 小家伙 乖乖 宝贝 小伙伴 小伙伴们 朋友 朋友们 好朋友 同学 同学们 小朋友 小朋友们 姐姐 哥哥 妹妹 弟弟 姊姊 妈妈 爸爸 爷爷 奶奶 老师 店长 店员 客人 客人们 嘉宾 主持人 观众 观众们 前辈 后辈 先生 女士 大小姐 少爷 那个人 某人 那位 这位 各位来宾 各位朋友 各位同学 大朋友 世界 阳光 太阳 月亮 天空 春天 青春 时光 森林 大海 咖啡 甜点 浅水区 甘兔庵 everyone everybody you sir madam friends folks guys').split(' ').concat('rabbit house'));
+const pronounsAndTitles=new Set(('我 你 您 他 她 它 我们 咱们 你们 您们 他们 她们 它们 大家 各位 诸位 各位观众 观众朋友们 小可爱 小家伙 乖乖 宝贝 小伙伴 小伙伴们 朋友 朋友们 好朋友 同学 同学们 小朋友 小朋友们 姐姐 哥哥 妹妹 弟弟 姊姊 妈妈 爸爸 爷爷 奶奶 老师 店长 店员 客人 客人们 嘉宾 主持人 观众 观众们 前辈 后辈 先生 女士 大小姐 少爷 那个人 某人 那位 这位 各位来宾 各位朋友 各位同学 大朋友 世界 阳光 太阳 月亮 天空 春天 青春 时光 森林 大海 咖啡 甜点 浅水区 甘兔庵 everyone everybody i we he she it they them us me him her you sir madam friends folks guys').split(' ').concat('rabbit house'));
 export function knownReference(name:string,catalog:ReferenceCatalog):boolean{
  const value=normalize(name);if(pronounsAndTitles.has(value))return true;
  const stripped=value.replace(/^(?:小|阿)/u,'').replace(/(?:酱|ちゃん|さん|君|桑|姐姐|姊姊|姐|哥哥|哥|妹妹|妹|弟弟|弟|前辈|老师|先生|女士|同学|小姐|様|さま)$/u,'');

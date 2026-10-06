@@ -14,7 +14,7 @@ export function registerIssues(text:string):Issue[]{
 export function combineLanguageIssues(text:string,model:Issue[],kind:string,direction:string,context:SpeakerContext):Issue[]{
  // A provider cannot turn a catalog alias or ordinary pronoun into an unknown
  // character. Filter only that issue class; keep unrelated grammar/style advice.
- model=model.filter(value=>!referenceWarning(value)||kind==='dialogue'&&!!context.character_catalog&&/^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}A-Za-z·・ -]+$/u.test(value.excerpt)&&!knownReference(value.excerpt,context.character_catalog));
+ model=model.filter(value=>!referenceWarning(value)||kind==='dialogue'&&!!context.character_catalog&&/^[\p{L}\p{N}·・ー'’ _-]+$/u.test(value.excerpt)&&/\p{L}/u.test(value.excerpt)&&!knownReference(value.excerpt,context.character_catalog));
  const rules=[...registerIssues(text),...characterStyleIssues(kind,direction,context),...referenceIssues(text,kind,context.character_catalog),...punctuationIssues(text,kind)],coarseDescription=(value:Issue)=>/(粗口|辱骂|脏话|粗俗|骂人)/u.test(value.problem);
  const punctuationKind=(value:Issue)=>['省略号','半角','问号','末尾缺少','空格'].find(word=>value.problem.includes(word));
  const overlaps=(a:Issue,b:Issue)=>{
