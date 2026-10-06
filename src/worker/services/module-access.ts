@@ -1,0 +1,5 @@
+import type {User} from '../../shared/models';import {canAccess,moduleForPath,type ModuleId} from '../../shared/modules';
+import {AppError,guard,now} from './core';
+export function requireModule(user:User,scope:ModuleId|'collaboration'|null){if(scope==='collaboration'){if(!(['program','script','characters'] as const).some(module=>canAccess(user,module)))throw new AppError(403,'未分配协作模块权限');}else if(scope&&!canAccess(user,scope))throw new AppError(403,'未分配此模块权限，请联系超级管理员');}
+export function requirePath(user:User,path:string){requireModule(user,moduleForPath(path));}
+export function moduleGuard(db:D1Database,key:string,user:User,hash:string,module:ModuleId){return guard(db,key,"EXISTS(SELECT 1 FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND u.id=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.disabled_at IS NULL AND u.role='admin' AND (EXISTS(SELECT 1 FROM user_capabilities c WHERE c.user_id=u.id AND c.capability='manage_admins') OR EXISTS(SELECT 1 FROM module_grants g WHERE g.user_id=u.id AND g.module=?)))",hash,user.id,now(),module);}

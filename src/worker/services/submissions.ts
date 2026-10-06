@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import {canAccess} from '../../shared/modules';
+import {moduleGuard,requireModule} from './module-access';
 import { completeSubmission, submissionDraft, type SubmissionDraft, type Submission, type Revision, type User, type Detail, type Review, type Event, type RoleOption, type Category } from '../../shared/models';
 import { all, AppError, atomic, audit, cleanup, first, guard, id, now, operationResult, parse, previous, sql } from './core';
 import { outbox } from './mail';
@@ -12,7 +14,7 @@ export async function formConfig(env:Env){
 }
 export async function detail(env:Env,user:User,submissionId:string,revisionId?:string):Promise<Detail>{
  const s=await first<Submission>(env.DB,'SELECT * FROM submissions WHERE id=? AND deleted_at IS NULL',submissionId);
- if(!s || (s.owner_user_id!==user.id && user.role!=='admin'))throw new AppError(404,'投稿不存在');
+ if(!s || (s.owner_user_id!==user.id && !canAccess(user,'review')))throw new AppError(404,'投稿不存在');
  const revisions=await all<Revision>(env.DB,'SELECT * FROM submission_revisions WHERE submission_id=? ORDER BY revision_no DESC',s.id);
  const r=revisionId?revisions.find(x=>x.id===revisionId):revisions[0];if(!r)throw new AppError(404,'投稿版本不存在');
  const people=await all<{id:string;uid:string|null;name:string}>(env.DB,'SELECT * FROM revision_people WHERE revision_id=?',r.id);
@@ -76,13 +78,14 @@ export async function submit(env:Env,user:User,sid:string,input:unknown){
   cleanup(env.DB,key+'-category'),...f.contributors.map((_,i)=>cleanup(env.DB,key+'-role-'+i)),audit(env.DB,user,'submission',sid,'submit',{revision:d.revision.id}),operationResult(env.DB,user,'submission.submit:'+sid,data.operation_id,old.hash,{ok:true}),cleanup(env.DB,key)]);
  return {ok:true};
 }
-export async function review(env:Env,user:User,sid:string,input:unknown,reopen=false){
+export async function review(env:Env,user:User,hash:string,sid:string,input:unknown,reopen=false){
+ requireModule(user,'review');
  const data=parse(z.object({expectedVersion:z.number().int(),expectedRevision:z.string(),operation_id:z.string().min(1).max(100),decision:z.enum(['approved','rejected']).optional(),reason:z.string().max(2000).default(''),internal_note:z.string().max(2000).default('')}).strict(),input);
  const action=reopen?'reopen':data.decision;if(!action)throw new AppError(422,'请选择审核结果');if(action!=='approved' && !data.reason.trim())throw new AppError(422,'请填写原因');
  const scope='review:'+sid+':'+action,old=await previous<{ok:boolean}>(env.DB,user,scope,data.operation_id,data);if(old.result)return old.result;
  const d=await detail(env,user,sid);const event=await first<Event>(env.DB,'SELECT * FROM events WHERE id=?',d.submission.event_id);if(!event)throw new AppError(404,'活动不存在');
  const key=id(),reviewId=id(),time=now();
- await atomic(env.DB,[guard(env.DB,key,"EXISTS(SELECT 1 FROM submissions s JOIN submission_revisions r ON r.submission_id=s.id WHERE s.id=? AND s.version=? AND s.status=? AND r.id=? AND r.revision_no=(SELECT MAX(revision_no) FROM submission_revisions WHERE submission_id=s.id))",sid,data.expectedVersion,reopen?'approved':'pending',data.expectedRevision),
+ await atomic(env.DB,[moduleGuard(env.DB,key+'-permission',user,hash,'review'),cleanup(env.DB,key+'-permission'),guard(env.DB,key,"EXISTS(SELECT 1 FROM submissions s JOIN submission_revisions r ON r.submission_id=s.id WHERE s.id=? AND s.version=? AND s.status=? AND r.id=? AND r.revision_no=(SELECT MAX(revision_no) FROM submission_revisions WHERE submission_id=s.id))",sid,data.expectedVersion,reopen?'approved':'pending',data.expectedRevision),
   sql(env.DB,'UPDATE submissions SET status=?,version=version+1,updated_at=? WHERE id=?',action==='approved'?'approved':'rejected',time,sid),
   sql(env.DB,'INSERT INTO reviews VALUES(?,?,?,?,?,?,?)',reviewId,data.expectedRevision,user.id,action,data.reason,data.internal_note,time),
   outbox(env.DB,sid,'review:'+reviewId,d.revision.feedback_email,event.name+' · '+(action==='approved'?'审核通过':action==='reopen'?'退回修改':'审核驳回'),`${d.submission.public_number}\n节目：${d.revision.title}\n活动：${event.name}\n版本：${d.revision.revision_no}\n结果：${action==='approved'?'通过':action==='reopen'?'之前通过已撤回，请修改重交':'驳回'}\n${data.reason}\n${env.APP_ORIGIN}/submit/${sid}`),

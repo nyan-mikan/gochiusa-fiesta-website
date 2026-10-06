@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MatchSelect from './MatchSelect.vue';
 import {ref,watch} from 'vue';import type {SubmissionDraft,RoleOption} from '../../shared/models';
 const props=defineProps<{form:SubmissionDraft;roles:RoleOption[];labels?:Record<string,string>;editable:boolean;errors?:{path:(string|number)[];message:string}[]}>();const emit=defineEmits<{change:[people:Pick<SubmissionDraft,'contact'|'uploader'|'contributors'>]}>();
 type Person=SubmissionDraft['contributors'][number]&{key:string;staff:boolean};
@@ -32,18 +33,18 @@ const roleLabel=(p:Person)=>props.roles.find(r=>r.id===p.role_option_id)?.label?
         </div>
       </header>
       <div class="member-fields">
-        <label>B站名称 *<input data-field="name" :aria-invalid="issues(p).length?true:undefined" :aria-describedby="issues(p).length?'member-error-'+p.key:undefined" v-model="p.name" required maxlength="100" placeholder="成员的公开署名"></label>
-        <label>B站 UID *<input data-field="uid" :aria-invalid="issues(p).length?true:undefined" :aria-describedby="issues(p).length?'member-error-'+p.key:undefined" v-model="p.uid" required inputmode="numeric" pattern="[0-9]+" maxlength="40" placeholder="数字 UID"><a v-if="/^[0-9]+$/.test(p.uid)" :href="'https://space.bilibili.com/'+p.uid" target="_blank" rel="noopener noreferrer" class="hint">核对空间 ↗</a></label>
-        <label v-if="p.staff">制作职务 *<select data-field="role_option_id" :aria-invalid="issues(p).some(e=>e.path[2]==='role_option_id')||undefined" :aria-describedby="issues(p).length?'member-error-'+p.key:undefined" v-model="p.role_option_id" required><option :value="null">{{ roles.length?'请选择职务':'请先选择作品分区' }}</option><option v-if="p.role_option_id&&!roles.some(r=>r.id===p.role_option_id)" :value="p.role_option_id">{{ editable?'原职务不适用，请重新选择':roleLabel(p)??'历史职务' }}</option><option v-for="r in roles" :key="r.id" :value="r.id">{{ r.label }}</option></select></label>
+        <FieldLabel>B站名称 *<input data-field="name" :aria-invalid="issues(p).length?true:undefined" :aria-describedby="issues(p).length?'member-error-'+p.key:undefined" v-model="p.name" required maxlength="100" placeholder="成员的公开署名"></FieldLabel>
+        <FieldLabel>B站 UID *<input data-field="uid" :aria-invalid="issues(p).length?true:undefined" :aria-describedby="issues(p).length?'member-error-'+p.key:undefined" v-model="p.uid" required inputmode="numeric" pattern="[0-9]+" maxlength="40" placeholder="数字 UID"><a v-if="/^[0-9]+$/.test(p.uid)" :href="'https://space.bilibili.com/'+p.uid" target="_blank" rel="noopener noreferrer" class="hint">核对空间 ↗</a></FieldLabel>
+        <FieldLabel v-if="p.staff">制作职务 *<MatchSelect data-field="role_option_id" :aria-invalid="issues(p).some(e=>e.path[2]==='role_option_id')||undefined" :aria-describedby="issues(p).length?'member-error-'+p.key:undefined" v-model="p.role_option_id" label="制作职务" :options="[{value:null,label:roles.length?'请选择职务':'请先选择作品分区'},...roles.map(r=>({value:r.id,label:r.label})),...(p.role_option_id&&!roles.some(r=>r.id===p.role_option_id)?[{value:p.role_option_id,label:roleLabel(p)??'历史职务',disabled:editable}]:[])]" required/></FieldLabel>
       </div>
       <p v-if="issues(p).length" :id="'member-error-'+p.key" class="text-danger">{{ issues(p).map(e=>e.message).join('；') }}</p><div class="member-flags">
-        <label class="check" :class="{selected:contact===p.key}"><input type="checkbox" data-field="contact" :aria-invalid="errors?.some(e=>e.path[0]==='contact')||undefined" :checked="contact===p.key" @change="contact=($event.target as HTMLInputElement).checked?p.key:''">负责人</label>
-        <label class="check" :class="{selected:uploader===p.key}"><input type="checkbox" data-field="uploader" :aria-invalid="errors?.some(e=>e.path[0]==='uploader')||undefined" :checked="uploader===p.key" @change="uploader=($event.target as HTMLInputElement).checked?p.key:''">主投稿账号</label>
-        <label class="check" :class="{selected:p.staff}"><input v-model="p.staff" type="checkbox">参与制作</label>
+        <FieldLabel class="check" :class="{selected:contact===p.key}"><input type="checkbox" data-field="contact" :aria-invalid="errors?.some(e=>e.path[0]==='contact')||undefined" :checked="contact===p.key" @change="contact=($event.target as HTMLInputElement).checked?p.key:''">负责人</FieldLabel>
+        <FieldLabel class="check" :class="{selected:uploader===p.key}"><input type="checkbox" data-field="uploader" :aria-invalid="errors?.some(e=>e.path[0]==='uploader')||undefined" :checked="uploader===p.key" @change="uploader=($event.target as HTMLInputElement).checked?p.key:''">主投稿账号</FieldLabel>
+        <FieldLabel class="check" :class="{selected:p.staff}"><input v-model="p.staff" type="checkbox">参与制作</FieldLabel>
       </div>
       <template v-if="p.staff">
-        <label v-if="roleLabel(p)==='其他'">具体职务 *<input data-field="role_other" :aria-invalid="issues(p).some(e=>e.path[2]==='role_other')||undefined" :aria-describedby="issues(p).length?'member-error-'+p.key:undefined" v-model="p.role_other" required maxlength="100" placeholder="请填写你负责的工作"></label>
-        <details class="member-detail" :open="!!p.work_detail"><summary>补充分工（可选）</summary><label class="detail-field">分工说明<input v-model="p.work_detail" maxlength="500" placeholder="例如：中文填词、混音、PV 合成"></label></details>
+        <FieldLabel v-if="roleLabel(p)==='其他'">具体职务 *<input data-field="role_other" :aria-invalid="issues(p).some(e=>e.path[2]==='role_other')||undefined" :aria-describedby="issues(p).length?'member-error-'+p.key:undefined" v-model="p.role_other" required maxlength="100" placeholder="请填写你负责的工作"></FieldLabel>
+        <details class="member-detail" :open="!!p.work_detail"><summary>补充分工（可选）</summary><FieldLabel class="detail-field">分工说明<input v-model="p.work_detail" maxlength="500" placeholder="例如：中文填词、混音、PV 合成"></FieldLabel></details>
       </template>
     </article>
     <button v-if="editable" type="button" class="add-member" @click="add">＋ 添加成员</button>

@@ -1,3 +1,4 @@
+import {erpChecks} from './erp-checks.mjs';
 import {accountFeatureChecks} from './account-features-checks.mjs';
 import {privateKeyChecks} from './private-key-checks.mjs';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
@@ -10,7 +11,7 @@ const server=createServer(async(req,res)=>{let body='';for await(const chunk of 
 const env={...process.env,XDG_CONFIG_HOME:join(tmpdir(),'gochiusa-wrangler-local'),WRANGLER_LOG_PATH:join(tmpdir(),'gochiusa-wrangler-logs'),WRANGLER_SEND_METRICS:'false'};
 const worker=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--local','--port','8787','--test-scheduled'],{env,stdio:['ignore','pipe','pipe']});let output='';worker.stdout.on('data',x=>output+=x);worker.stderr.on('data',x=>output+=x);
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
-async function request(path,data,cookie='',method=data===undefined?'GET':'POST',expected=200){const r=await fetch(origin+path,{method,headers:{'CF-Connecting-IP':'203.0.113.'+(parseInt(suffix.slice(0,6),16)%254+1),...(data!==undefined?{'Content-Type':'application/json','Origin':origin,'X-Requested-With':'usagi'}:{}),...(cookie?{Cookie:cookie}:{})},body:data===undefined?undefined:JSON.stringify(data),redirect:'manual'});const body=await r.text();assert.ok((Array.isArray(expected)?expected:[expected]).includes(r.status),`${method} ${path}: ${r.status} ${body}`);checks++;return {r,v:r.headers.get('content-type')?.includes('application/json')?JSON.parse(body):body};}
+async function request(path,data,cookie='',method=data===undefined?'GET':'POST',expected=200){const r=await fetch(origin+path,{method,headers:{'CF-Connecting-IP':path==='/api/auth/code'&&data?.email?'198.51.100.'+(parseInt(createHash('sha256').update(data.email).digest('hex').slice(0,6),16)%254+1):'203.0.113.'+(parseInt(suffix.slice(0,6),16)%254+1),...(data!==undefined?{'Content-Type':'application/json','Origin':origin,'X-Requested-With':'usagi'}:{}),...(cookie?{Cookie:cookie}:{})},body:data===undefined?undefined:JSON.stringify(data),redirect:'manual'});const body=await r.text();assert.ok((Array.isArray(expected)?expected:[expected]).includes(r.status),`${method} ${path}: ${r.status} ${body}`);checks++;return {r,v:r.headers.get('content-type')?.includes('application/json')?JSON.parse(body):body};}
 async function login(email){const {v}=await request('/api/auth/code',{email});const message=mail.find(m=>m.to===email&&m.key==='auth:'+v.challenge_id);assert.ok(message,'OTP arrives through mail adapter');const code=message.text.match(/[0-9]{6}/)[0];assert.ok(message.html?.includes('>'+code+'</p>'),'HTML and text carry the same OTP');assert.ok(message.html.includes('Gochiusa New Year Fiesta'));assert.ok(message.html.includes('10 分钟内有效'));const {r,v:user}=await request('/api/auth/verify',{challenge_id:v.challenge_id,code});assert.match(r.headers.get('set-cookie'),/HttpOnly/);assert.match(r.headers.get('set-cookie'),/SameSite=Lax/);assert.match(r.headers.get('set-cookie'),/Max-Age=604800(?:;|$)/);return {cookie:r.headers.get('set-cookie').split(';')[0],user:user.user,challenge:v.challenge_id,code};}
 try{
  for(let i=0;i<80;i++){try{const r=await fetch(origin+'/api/health');if(r.ok)break;}catch{}if(i===79)throw new Error('Worker did not start: '+output);await pause(250);}
@@ -30,7 +31,7 @@ try{
  await request('/api/admin/settings',undefined,owner.cookie,'GET',403);await request('/api/no-such-route',undefined,'','GET',404);await request('/admin/program',undefined,'','GET',302);await request('/admin/program',undefined,owner.cookie,'GET',403);
  const forged=await fetch(origin+'/api/submissions',{method:'POST',headers:{Cookie:owner.cookie,'Content-Type':'application/json',Origin:'https://evil.test','X-Requested-With':'usagi'},body:'{}'});assert.equal(forged.status,403);checks++;
  const {v:event}=await request('/api/admin/events',{name:'集成测试 '+suffix,year:2026,timezone:'Asia/Shanghai',opens_at:null,closes_at:null,submissions_open:true,active:true},admin.cookie);
- await request('/api/admin/bili-role-config',{category_id:null,name:'测试分区 '+suffix,platform_id:null,staff_limit:10,verified:true,evidence_url:'https://www.bilibili.com/blackboard/activity-hezuogongyue.html',labels:['演唱','后期']},admin.cookie,'PUT');
+ await request('/api/admin/bili-role-config',{category_id:null,expectedVersion:null,operation_id:randomUUID(),name:'测试分区 '+suffix,platform_id:null,staff_limit:10,verified:true,evidence_url:'https://www.bilibili.com/blackboard/activity-hezuogongyue.html',labels:['演唱','后期']},admin.cookie,'PUT');
  const {v:config}=await request('/api/form-config',undefined,owner.cookie);const category=config.categories.find(x=>x.name==='测试分区 '+suffix),role=config.roles.find(x=>x.category_id===category.id);
 
  { // Blessing submissions use real D1, authenticated roles and private local R2.
@@ -217,7 +218,7 @@ try{
  await request('/api/admin/users/role',{email:invited,role:'admin',expected_version:null,operation_id:randomUUID()},root.cookie,'PUT');
  let invitedAccount=(await request('/api/admin/users?search='+encodeURIComponent(invited),undefined,root.cookie)).v.users[0];assert.equal(invitedAccount.verified_at,null);
  const invite=await login(invited);assert.equal(invite.user.role,'admin');assert.equal(invite.user.is_super_admin,false);
- await request('/api/admin/settings',undefined,invite.cookie);
+ await request('/api/admin/settings',undefined,invite.cookie,'GET',403);assert.equal(invite.user.modules.length,0);
  await request('/api/admin/users',undefined,invite.cookie,'GET',403);
  await request('/api/admin/users/role',{email:invited,role:'submitter',expected_version:invitedAccount.version,operation_id:randomUUID()},root.cookie,'PUT');
  await request('/api/me',undefined,invite.cookie,'GET',401);
@@ -229,7 +230,7 @@ try{
  assert.throws(()=>execFileSync(process.execPath,['node_modules/wrangler/bin/wrangler.js','d1','execute','DB','--local','--command',"UPDATE users SET role='submitter' WHERE email='"+rootEmail+"'"],{env,stdio:'pipe'}),'database blocks direct demotion of a super administrator');
  assert.equal((await request('/api/me',undefined,root.cookie)).v.user.is_super_admin,true);
  // Verified platform limit is advisory: preserve the complete submitted member list.
- await request('/api/admin/bili-role-config',{category_id:null,name:'人数上限 '+suffix,platform_id:null,staff_limit:1,verified:true,evidence_url:'https://example.test/verified',labels:['演唱']},admin.cookie,'PUT');
+ await request('/api/admin/bili-role-config',{category_id:null,expectedVersion:null,operation_id:randomUUID(),name:'人数上限 '+suffix,platform_id:null,staff_limit:1,verified:true,evidence_url:'https://example.test/verified',labels:['演唱']},admin.cookie,'PUT');
  const limits=(await request('/api/form-config',undefined,owner.cookie)).v,limited=limits.categories.find(c=>c.name==='人数上限 '+suffix),limitedRole=limits.roles.find(r=>r.category_id===limited.id);
  const limitDraft=(await request('/api/submissions',{event_id:event.id,operation_id:randomUUID()},owner.cookie,'POST',201)).v;
  const limitForm={...form,category_id:limited.id,contributors:[{name:'甲',uid:'10001',role_option_id:limitedRole.id,work_detail:''},{name:'乙',uid:'10002',role_option_id:limitedRole.id,work_detail:''}]};
@@ -237,6 +238,7 @@ try{
  await request('/api/submissions/'+limitDraft.id+'/submit',{expectedVersion:limitSaved.version,operation_id:randomUUID(),confirmed:true},owner.cookie);
  const limitDetail=(await request('/api/submissions/'+limitDraft.id,undefined,admin.cookie)).v;assert.equal(limitDetail.staff_limit,1);assert.equal(limitDetail.form.contributors.length,2);assert.ok(limitDetail.warnings.length);
  await accountFeatureChecks({request,owner,other:await login('features-other-'+suffix+'@example.test'),admin,root,localSql,form,origin});
+ await erpChecks({request,root,admin,owner,login,localSql,event});
  await privateKeyChecks({request,mail,owner,other:await login('key-other-'+suffix+'@example.test'),localSql,login,origin});
  await request('/api/auth/logout',{},owner.cookie);await request('/api/me',undefined,owner.cookie,'GET',401);
  console.log(`PASS: ${checks} HTTP checks; real local D1, OTP mail adapter, immutable revisions, permissions, idempotency, review/program race protection, concurrent line writes, WebSocket, orphan retention, final export, outbox, super administrator authority, R2 multipart uploads and size limits, file ownership/ranges, Other validation, character colors, wishes text/audio/ZIP permissions and session invalidation.`);

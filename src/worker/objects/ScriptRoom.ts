@@ -1,3 +1,5 @@
+import {canAccess,moduleForChange} from '../../shared/modules';
+import {requireModule} from '../services/module-access';
 import { DurableObject } from 'cloudflare:workers';
 import { actor, all, AppError, first, sessionHash } from '../services/core';
 import { context, scriptMutation, programMutation, characterMutation } from '../services/room';
@@ -19,7 +21,7 @@ export class ScriptRoom extends DurableObject<Env> {
     if(!change)return;
     for(const ws of this.ctx.getWebSockets()){
       const attachment=ws.deserializeAttachment() as {eventId:string;hash:string};if(attachment.eventId!==eventId)continue;
-      try{await actor(this.env,attachment.hash,true);ws.send(JSON.stringify({type:'change',change}));}catch{ws.close(4001,'session_expired');}
+      try{const user=await actor(this.env,attachment.hash,true);requireModule(user,'collaboration');if(!canAccess(user,moduleForChange(change.type))){ws.send(JSON.stringify({type:'hello',seq}));continue;}ws.send(JSON.stringify({type:'change',change}));}catch{ws.close(4001,'session_expired');}
     }
   }
   async fetch(request:Request){
@@ -27,17 +29,17 @@ export class ScriptRoom extends DurableObject<Env> {
     if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('Upgrade required',{status:426});
     const match=url.pathname.match(/\/events\/([^/]+)\/realtime$/);if(!match)return new Response('Not found',{status:404});
     const eventId=decodeURIComponent(match[1]),hash=await sessionHash(request);
-    try{await actor(this.env,hash,true);}catch{return new Response('Unauthorized',{status:401});}
+    try{requireModule(await actor(this.env,hash,true),'collaboration');}catch{return new Response('Unauthorized',{status:401});}
     const {p}=await context(this.env,eventId);const pair=new WebSocketPair();const [client,server]=Object.values(pair);
     server.serializeAttachment({eventId,hash});this.ctx.acceptWebSocket(server);server.send(JSON.stringify({type:'hello',seq:p.change_seq}));
     await this.ctx.storage.setAlarm(Date.now()+60000);return new Response(null,{status:101,webSocket:client});
   }
   async webSocketMessage(ws:WebSocket,message:string|ArrayBuffer){
     const data=ws.deserializeAttachment() as {eventId:string;hash:string};
-    try{await actor(this.env,data.hash,true);const {p}=await context(this.env,data.eventId);ws.send(JSON.stringify({type:'hello',seq:p.change_seq}));}catch{ws.close(4001,'session_expired');}
+    try{requireModule(await actor(this.env,data.hash,true),'collaboration');const {p}=await context(this.env,data.eventId);ws.send(JSON.stringify({type:'hello',seq:p.change_seq}));}catch{ws.close(4001,'session_expired');}
   }
   async alarm(){
-    for(const ws of this.ctx.getWebSockets()){const data=ws.deserializeAttachment() as {hash:string};try{await actor(this.env,data.hash,true);}catch{ws.close(4001,'session_expired');}}
+    for(const ws of this.ctx.getWebSockets()){const data=ws.deserializeAttachment() as {hash:string};try{requireModule(await actor(this.env,data.hash,true),'collaboration');}catch{ws.close(4001,'session_expired');}}
     if(this.ctx.getWebSockets().length)await this.ctx.storage.setAlarm(Date.now()+60000);
   }
   async webSocketClose(ws:WebSocket,code:number,reason:string){ws.close(code,reason);}

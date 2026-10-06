@@ -27,7 +27,7 @@ function drop(event:DragEvent){
 </script>
 <template>
  <div class="file-dropzone" :class="{'is-dragging':depth>0,'is-disabled':disabled}" role="group" :aria-label="label" :aria-disabled="disabled||undefined" @dragenter.prevent.stop="enter" @dragover.prevent.stop="over" @dragleave.prevent.stop="depth=Math.max(0,depth-1)" @drop.prevent.stop="drop">
-  <label :for="id">{{ label }}</label>
+  <FieldLabel :for="id">{{ label }}</FieldLabel>
   <p class="drop-prompt" role="status">{{ depth>0?'松开即可选择文件':'将文件拖到这里，或点击下方选择文件' }}</p>
   <input :id="id" type="file" :accept="accept" :disabled="disabled" :aria-describedby="id+'-hint'+(error?' '+id+'-error':'')" @change="choose">
   <p :id="id+'-hint'" class="hint">{{ hint }}</p>

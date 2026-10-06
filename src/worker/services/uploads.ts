@@ -1,11 +1,12 @@
 import {z} from 'zod';
 import type {User} from '../../shared/models';
+import {canAccess} from '../../shared/modules';
 import {MAX_UPLOAD_SIZE,UPLOAD_PART_SIZE} from '../../shared/uploads';
 import {all,first,sql,AppError,parse,id,now,atomic,guard,cleanup} from './core';
 interface Upload {id:string;submission_id:string;object_key:string;multipart_id:string;filename:string;size:number;content_type:string;state:string;expires_at:string}
 async function owned(env:Env,user:User,uid:string,write=false){
  const u=await first<Upload & {owner_user_id:string;status:string}>(env.DB,'SELECT u.*,s.owner_user_id,s.status FROM uploads u JOIN submissions s ON s.id=u.submission_id WHERE u.id=? AND s.deleted_at IS NULL',uid);
- if(!u||(u.owner_user_id!==user.id&&(write||user.role!=='admin')))throw new AppError(404,'文件不存在');
+ if(!u||(u.owner_user_id!==user.id&&(write||!canAccess(user,'review'))))throw new AppError(404,'文件不存在');
  if(write&&(!['draft','rejected'].includes(u.status)||u.expires_at<now()))throw new AppError(409,'上传已到期或投稿已经提交');return u;
 }
 export async function createUpload(env:Env,user:User,sid:string,input:unknown){

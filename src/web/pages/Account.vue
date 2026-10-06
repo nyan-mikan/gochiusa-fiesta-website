@@ -36,7 +36,7 @@ function download(){
  <div class="page account-page">
   <header class="page-head"><div><h1>账号设置</h1><p class="muted">{{ session.user?.email }}</p></div></header>
   <section class="key-card profile-card">
-   <h2>昵称</h2><form @submit.prevent="saveNickname"><label>用户昵称<input v-model="nickname" maxlength="40" autocomplete="nickname" placeholder="设置希望展示的名字" :disabled="profileBusy"></label><p class="hint">最多 40 字，留空时使用邮箱前缀。更改昵称不会修改已提交的祝福语署名。</p><button class="primary" :disabled="profileBusy">{{ profileBusy?'正在保存…':'保存昵称' }}</button></form><p v-if="profileError" class="alert error" role="alert">{{ profileError }}</p><p v-if="profileNotice" class="alert success" role="status">{{ profileNotice }}</p>
+   <h2>昵称</h2><form @submit.prevent="saveNickname"><FieldLabel>用户昵称<input v-model="nickname" maxlength="40" autocomplete="nickname" placeholder="设置希望展示的名字" :disabled="profileBusy"></FieldLabel><p class="hint">最多 40 字，留空时使用邮箱前缀。更改昵称不会修改已提交的祝福语署名。</p><button class="primary" :disabled="profileBusy">{{ profileBusy?'正在保存…':'保存昵称' }}</button></form><p v-if="profileError" class="alert error" role="alert">{{ profileError }}</p><p v-if="profileNotice" class="alert success" role="status">{{ profileNotice }}</p>
   </section>
   <section class="key-card private-key-card">
    <h2>私钥登录</h2>
@@ -56,8 +56,8 @@ function download(){
     <template v-else>
      <p v-if="downloaded" class="alert" role="status">已提供私钥下载，请确认文件已保存。本站无法再次提供这份私钥。</p>
      <form v-if="challenge" @submit.prevent="generate">
-      <label>邮箱验证码<input v-model="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="6 位数字" :disabled="busy"><span class="hint">已发送至 {{ session.user?.email }}，10 分钟内有效。仅用于本次生成私钥。</span></label>
-      <label class="acknowledge"><input v-model="accepted" type="checkbox" required :disabled="busy">我会妥善保存私钥，并知晓生成新私钥会使旧私钥失效。</label>
+      <FieldLabel>邮箱验证码<input v-model="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="6 位数字" :disabled="busy"><span class="hint">已发送至 {{ session.user?.email }}，10 分钟内有效。仅用于本次生成私钥。</span></FieldLabel>
+      <FieldLabel class="acknowledge"><input v-model="accepted" type="checkbox" required :disabled="busy">我会妥善保存私钥，并知晓生成新私钥会使旧私钥失效。</FieldLabel>
       <div class="actions"><button class="primary" :disabled="busy||!accepted">{{ busy?'正在生成…':current?'验证并更换私钥':'验证并生成私钥' }}</button><button type="button" :disabled="busy||cooldown>0" @click="send">{{ cooldown?cooldown+' 秒后可重发':'重新发送验证码' }}</button></div>
      </form>
      <button v-else class="primary" :disabled="loading||busy||cooldown>0" @click="send">{{ busy?'正在发送…':cooldown?cooldown+' 秒后可重新验证':current?'验证邮箱，更换私钥':'验证邮箱，生成私钥' }}</button>

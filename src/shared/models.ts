@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type {ModuleId} from './modules';
 
 export const uid = z.string().regex(/^[0-9]*[1-9][0-9]*$/, '请填写非零的十进制 UID');
 const short = z.string().trim().max(100);
@@ -32,11 +33,11 @@ export const completeSubmission = submissionDraft.superRefine((value, ctx) => {
 });
 export const programTypes=['翻唱','原创曲','宅舞','MMD','MAD或AMV','手书','配音或剧场','其他'];
 export type SubmissionDraft = z.infer<typeof submissionDraft>;
-export interface User {id:string;email:string;nickname:string;role:'submitter'|'admin';is_super_admin:boolean}
+export interface User {id:string;email:string;nickname:string;role:'submitter'|'admin';is_super_admin:boolean;modules:ModuleId[]}
 export interface ManagedUser extends User {version:number;verified_at:string|null;created_at:string}
 export interface Event {id:string;name:string;year:number;timezone:string;opens_at:string|null;closes_at:string|null;submissions_open:number;wishes_open:number;active:number;version:number}
 export interface RoleOption {id:string;category_id:string;label:string;dictionary_version:number;verified_at:string|null;enabled:number;evidence_url:string}
-export interface Category {origin?:string;id:string;name:string;platform_id:string|null;enabled:number;verified_at:string|null;staff_limit:number|null}
+export interface Category {version:number;origin?:string;id:string;name:string;platform_id:string|null;enabled:number;verified_at:string|null;staff_limit:number|null}
 export interface FormConfig {uploads_enabled:boolean;events:Event[];categories:Category[];roles:RoleOption[];test_dictionary:boolean}
 export interface Submission {id:string;event_id:string;owner_user_id:string;public_number:string;status:'draft'|'pending'|'approved'|'rejected';version:number;created_at:string;updated_at:string}
 export interface Revision {id:string;submission_id:string;revision_no:number;title:string;type:string;description:string;duration_seconds:number;category_id:string|null;feedback_email:string;delivery_url:string;access_notes:string;notes:string;submitted_at:string|null;created_at:string}

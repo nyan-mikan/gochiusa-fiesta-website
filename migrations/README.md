@@ -15,3 +15,5 @@ D1 batch 在断言/约束失败时整体回滚；不要通过删除 immutable �
 0013_private_key_login 新增账号公钥、领取验证码、一次性签名登录挑战及私钥登录会话关联。每账号只允许一把有效公钥，轮换保留旧公钥并撤销关联会话；不保存私钥，不改变既有 sessions 列，详见 [PRIVATE_KEY_LOGIN.md](../docs/PRIVATE_KEY_LOGIN.md)。部署新增认证代码前先应用此追加迁移。
 
 0014_account_and_deletion 新增账号昵称、草稿删除标记和私钥识别用途。追加触发器限制每账号每活动一则新祝福语，保护已提交历史，禁止在已删除草稿上创建上传任务；既有数据保留，详见 [ACCOUNT_AND_DELETION.md](../docs/ACCOUNT_AND_DELETION.md)。
+
+0015_modules_and_dictionary.sql：分区乐观版本、七个管理模块授权与约束。为已有管理员保留原模块，新管理员须由超级管理员分配；职务定义及现有业务内容不变。

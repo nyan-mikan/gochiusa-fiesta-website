@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import {requireModule,moduleGuard} from './module-access';
+import type {ModuleId} from '../../shared/modules';
 import { lineKind, characterOperation, scriptOperation, programInput, type Snapshot, type Program, type ScriptDocument, type Line, type Block, type Character, type CharacterList, type ProgramItem, type User, type ScriptOperation, type CharacterOperation, type ProgramInput } from '../../shared/models';
 import { actor, all, AppError, atomic, audit, cleanup, first, guard, id, now, operationResult, parse, previous, sql } from './core';
 import {dialogueSegments,splitSegments} from '../../shared/dialogue';
@@ -26,9 +28,9 @@ export async function snapshot(env:Env,eventId:string):Promise<Snapshot>{
  return {program,items:r[1].results as ProgramItem[],document:r[2].results[0] as ScriptDocument,blocks:r[3].results as Block[],lines:(r[4].results as Line[]).map(hydrateLine),characters:chars.map(({aliases_json,sources_json,...c})=>({...c,aliases:JSON.parse(aliases_json),sources:JSON.parse(sources_json)})),lists:lists.map(l=>({...l,members:members.filter(m=>m.list_id===l.id).map(m=>m.character_id)})),seq:program.change_seq};
 }
 interface Result {type:string;seq:number;ids?:string[];count?:number;version?:number;id?:string;line?:Line;structure_version?:number;locked?:number}
-function common(env:Env,user:User,sessionHash:string,p:Program,key:string){return [
+function common(env:Env,user:User,sessionHash:string,p:Program,key:string,module:ModuleId){return [
  guard(env.DB,key,'EXISTS(SELECT 1 FROM programs WHERE id=? AND change_seq=?)',p.id,p.change_seq),
- guard(env.DB,key+'-auth',"EXISTS(SELECT 1 FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.disabled_at IS NULL AND u.role='admin')",sessionHash,now()),
+ moduleGuard(env.DB,key+'-auth',user,sessionHash,module),
  ];}
 function end(env:Env,user:User,p:Program,key:string,operationId:string,hash:string,result:Result,before:unknown=null,documentId?:string){
  return [sql(env.DB,'UPDATE programs SET change_seq=change_seq+1 WHERE id=?',p.id),
@@ -37,9 +39,9 @@ function end(env:Env,user:User,p:Program,key:string,operationId:string,hash:stri
  audit(env.DB,user,'program',p.id,result.type,{seq:result.seq}),operationResult(env.DB,user,'room:'+p.event_id,operationId,hash,result),cleanup(env.DB,key),cleanup(env.DB,key+'-auth')];
 }
 export async function scriptMutation(env:Env,sessionHash:string,eventId:string,input:unknown){
- const user=await actor(env,sessionHash,true),op=parse(scriptOperation,input),{p,d}=await context(env,eventId);
+ const user=await actor(env,sessionHash,true);requireModule(user,'script');const op=parse(scriptOperation,input),{p,d}=await context(env,eventId);
  const old=await previous<Result>(env.DB,user,'room:'+eventId,op.operation_id,op);if(old.result)return old.result;
- const key=id(),statements=common(env,user,sessionHash,p,key);const result:Result={type:op.type,seq:p.change_seq+1};let before:unknown=null;
+ const key=id(),statements=common(env,user,sessionHash,p,key,'script');const result:Result={type:op.type,seq:p.change_seq+1};let before:unknown=null;
  if(d.locked && op.type!=='script.lock')throw new AppError(409,'主持稿已定稿，请先显式解锁');
  if(op.type.startsWith('line.')){
   if(op.type==='line.add'){
@@ -139,9 +141,9 @@ export async function scriptMutation(env:Env,sessionHash:string,eventId:string,i
  statements.push(cleanup(env.DB,key+'-entity'),...end(env,user,p,key,op.operation_id,old.hash,result,before,d.id));await atomic(env.DB,statements);return result;
 }
 export async function programMutation(env:Env,sessionHash:string,eventId:string,input:unknown,lock=false){
- const user=await actor(env,sessionHash,true);const op=lock?parse(z.object({operation_id:z.string(),expectedVersion:z.number().int(),locked:z.boolean(),reason:z.string().max(1000)}).strict(),input):parse(programInput,input);
+ const user=await actor(env,sessionHash,true);requireModule(user,'program');const op=lock?parse(z.object({operation_id:z.string(),expectedVersion:z.number().int(),locked:z.boolean(),reason:z.string().max(1000)}).strict(),input):parse(programInput,input);
  const {p,d}=await context(env,eventId),old=await previous<Result>(env.DB,user,'room:'+eventId,op.operation_id,op);if(old.result)return old.result;
- const key=id(),statements=common(env,user,sessionHash,p,key),result:Result={type:lock?'program.lock':'program.save',seq:p.change_seq+1,version:p.version+1};
+ const key=id(),statements=common(env,user,sessionHash,p,key,'program'),result:Result={type:lock?'program.lock':'program.save',seq:p.change_seq+1,version:p.version+1};
  statements.push(guard(env.DB,key+'-program','EXISTS(SELECT 1 FROM programs WHERE id=? AND version=?)',p.id,op.expectedVersion));
  const snap=await snapshot(env,eventId);
  if('locked' in op){
@@ -167,8 +169,8 @@ export async function programMutation(env:Env,sessionHash:string,eventId:string,
  statements.push(sql(env.DB,'INSERT INTO program_history VALUES(?,?,?,?,?,?,?,?)',id(),p.id,p.version+1,user.id,result.type,'reason'in op?op.reason:'',JSON.stringify({before:snap.items,after}),now()),cleanup(env.DB,key+'-program'),...end(env,user,p,key,op.operation_id,old.hash,result));await atomic(env.DB,statements);return result;
 }
 export async function characterMutation(env:Env,sessionHash:string,eventId:string,input:unknown){
- const user=await actor(env,sessionHash,true),op=parse(characterOperation,input),{p}=await context(env,eventId),old=await previous<Result>(env.DB,user,'room:'+eventId,op.operation_id,op);if(old.result)return old.result;
- const key=id(),statements=common(env,user,sessionHash,p,key),result:Result={type:op.type,seq:p.change_seq+1,id:op.id};
+ const user=await actor(env,sessionHash,true);requireModule(user,'characters');const op=parse(characterOperation,input),{p}=await context(env,eventId),old=await previous<Result>(env.DB,user,'room:'+eventId,op.operation_id,op);if(old.result)return old.result;
+ const key=id(),statements=common(env,user,sessionHash,p,key,'characters'),result:Result={type:op.type,seq:p.change_seq+1,id:op.id};
  if(op.type==='character.add'){
   statements.push(sql(env.DB,"INSERT INTO characters(id,stable_key,event_id,kind,name,color) VALUES(?,?,?,'custom',?,?)",op.id,'custom:'+op.id,eventId,op.name,op.color));
   if(op.list_id){statements.push(guard(env.DB,key+'-entity','EXISTS(SELECT 1 FROM character_lists WHERE id=? AND event_id=? AND archived=0)',op.list_id,eventId),sql(env.DB,'INSERT INTO character_list_members SELECT ?,?,COALESCE(MAX(position),-1)+1 FROM character_list_members WHERE list_id=?',op.list_id,op.id,op.list_id),sql(env.DB,'UPDATE character_lists SET version=version+1 WHERE id=?',op.list_id));}
