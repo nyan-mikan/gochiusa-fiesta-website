@@ -94,6 +94,16 @@ try{
  const createOp={event_id:event.id,operation_id:randomUUID()};const {v:created}=await request('/api/submissions',createOp,owner.cookie,'POST',201);const again=await request('/api/submissions',createOp,owner.cookie,'POST',201);assert.equal(created.id,again.v.id);
  let d=(await request('/api/submissions/'+created.id,undefined,owner.cookie)).v;await request('/api/submissions/'+created.id,undefined,other.cookie,'GET',404);
  const form={title:'=测试曲 '+suffix,type:'翻唱',description:'集成测试作品简介',duration_seconds:125,category_id:category.id,delivery_url:'https://example.test/movie',access_notes:'仅管理员可见提取码',notes:'备注',contact:{name:'负责人',uid:'123456789012345678901234567890'},uploader:{name:'主投稿',uid:'987654321'},contributors:[{name:'负责人',uid:'123456789012345678901234567890',role_option_id:role.id,work_detail:'演唱与混音'}]};
+ // Preview links are optional even without an upload; nonempty links still need safe HTTPS URLs.
+ const optionalDraft=(await request('/api/submissions',{event_id:event.id,operation_id:randomUUID()},owner.cookie,'POST',201)).v,optionalPath='/api/submissions/'+optionalDraft.id;let optionalDetail=(await request(optionalPath,undefined,owner.cookie)).v;
+ for(const delivery_url of ['http://example.test/movie','not-a-link','https://user:password@example.test/movie']){
+  await request(optionalPath,{expectedVersion:optionalDetail.submission.version,form:{...form,delivery_url}},owner.cookie,'PATCH');optionalDetail=(await request(optionalPath,undefined,owner.cookie)).v;
+  await request(optionalPath+'/submit',{expectedVersion:optionalDetail.submission.version,operation_id:randomUUID(),confirmed:true},owner.cookie,'POST',422);
+ }
+ await request(optionalPath,{expectedVersion:optionalDetail.submission.version,form:{...form,delivery_url:''}},owner.cookie,'PATCH');optionalDetail=(await request(optionalPath,undefined,owner.cookie)).v;
+ assert.equal(optionalDetail.submission.status,'draft');assert.equal(optionalDetail.revision.submitted_at,null);assert.equal(optionalDetail.form.upload_id,null);
+ const optionalSubmit={expectedVersion:optionalDetail.submission.version,operation_id:randomUUID(),confirmed:true};await request(optionalPath+'/submit',optionalSubmit,owner.cookie);await request(optionalPath+'/submit',optionalSubmit,owner.cookie);
+ optionalDetail=(await request(optionalPath,undefined,owner.cookie)).v;assert.equal(optionalDetail.submission.status,'pending');assert.ok(optionalDetail.revision.submitted_at);assert.equal(optionalDetail.revision.delivery_url,'');assert.equal(optionalDetail.form.delivery_url,'');assert.equal(optionalDetail.form.upload_id,null);
  await request('/api/submissions/'+created.id,{expectedVersion:d.submission.version,form},owner.cookie,'PATCH');d=(await request('/api/submissions/'+created.id,undefined,owner.cookie)).v;assert.equal(d.form.contact.uid,form.contact.uid);
  // Clearing identity flags is a valid draft state and must survive a D1 round trip without assigning a member.
  const unassigned={...form,contact:{name:'',uid:''},uploader:{name:'',uid:''}};

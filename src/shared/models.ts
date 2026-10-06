@@ -15,7 +15,6 @@ export const completeSubmission = submissionDraft.superRefine((value, ctx) => {
  if (!programTypes.includes(value.type)) ctx.addIssue({code:'custom',path:['type'],message:'请选择节目类型'});
  if (value.duration_seconds<1) ctx.addIssue({code:'custom',path:['duration_seconds'],message:'请填写节目时长'});
  if(value.type==='其他'&&!value.type_other)ctx.addIssue({code:'custom',path:['type_other'],message:'请说明具体节目类型'});
- if (!value.upload_id && !/^https:\/\//i.test(value.delivery_url)) ctx.addIssue({code:'custom',path:['delivery_url'],message:'请填写 HTTPS 作品链接'});
  if(value.delivery_url)try { const url=new URL(value.delivery_url); if(url.username || url.password || url.protocol!=='https:') throw new Error(); } catch {ctx.addIssue({code:'custom',path:['delivery_url'],message:'链接格式无效'});}
  for(const key of ['contact','uploader'] as const) {
   if(!value[key].name || !uid.safeParse(value[key].uid).success) ctx.addIssue({code:'custom',path:[key],message:'名称与数字 UID 必填'});
