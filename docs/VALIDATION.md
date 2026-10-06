@@ -251,3 +251,7 @@ production D1 已只读核对迁移记录和四张表，PRAGMA foreign_key_check
 正式发布完成：代码 `38fff35`、production Worker 版本 `2e4ebe93-5091-4574-991d-5ab918ac5977`，只追加 `0015_modules_and_dictionary.sql`。正式域名常规 smoke 18 项与专项 55 项通过，登录 HTML 和全部 35 个 JS/CSS 文件逐字节匹配最终浏览器验收构建。专项包含匿名字典/模块授权接口 401、管理应用入口登录跳转，以及原有账号、私钥校验和 CSRF 检查；真实认证及模块操作的完整验收在本地完成。
 
 production 只读确认最新迁移、五个授权约束触发器、六个分区初始版本及无外键异常。3 个启用管理员各保留 7 项授权，共 21 条，无遗漏；发布前后 users=4、submissions=3、script_lines=9、wishes=0、categories=6、role_options=49。保持现有 D1、R2、DO、SMTP、域名及定时任务，没有创建服务、升级套餐、添加生产测试身份或发送真实测试邮件；staging 未变更。
+
+## 2026-10-06 昵称保存提示间距
+
+账号设置昵称卡片的成功及错误提示增加 16px 上边距。类型检查、构建通过；使用本地 Worker、loopback 邮箱和 Chromium 实际登录并保存昵称，1440px、390px、320px 视口实测按钮与成功提示间距均为 16px，无横向溢出。代码 `92fe0ab` 已发布到 production，版本 `62c153a1-1068-493d-8cfe-9263d58a97c2`；线上常规 18 项、专项 55 项通过，HTML 与全部 35 个 JS/CSS 匹配构建。本次仅改昵称卡片间距，无数据库迁移或生产资料操作。
