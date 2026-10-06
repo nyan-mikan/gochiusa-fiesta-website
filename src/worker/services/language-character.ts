@@ -2,6 +2,7 @@ import type {Character,Line} from '../../shared/models';
 import {dialogueSegments,dialogueSpeakers} from '../../shared/dialogue';
 import {all} from './core';
 import type {LanguageIssue} from '../../shared/script-language';
+import type {ReferenceCatalog} from './language-references';
 
 export const characterProfiles:Record<string,{name:string;personality:string}>={
  cocoa:{name:'保登心爱',personality:'元气、热情、亲切，喜欢交朋友和照顾大家，憧憬姐姐的身份；有时冒失或想当然。正常的兴奋、撒娇、逞姐姐和温柔打趣符合她；冷酷羞辱朋友、恶意排斥他人明显不符合她。'},
@@ -15,7 +16,7 @@ export const characterProfiles:Record<string,{name:string;personality:string}>={
  mocha:{name:'保登萌香（摩卡）',personality:'温暖、亲切、包容，姐姐气质强，关爱心爱并照顾周围的人，也可能天然、兴奋或逗弄妹妹。姐姐式玩笑可接受；冷酷厌弃妹妹、恶意羞辱亲友明显不符合她。'},
  aoyama:{name:'青山翠',personality:'温和、悠然，带有作家的观察力和文艺气质，有时天然或调皮，以温柔方式打趣和寻找灵感。玩笑、联想和轻松吐槽可接受；恶毒敌视伙伴或粗暴羞辱他人明显不符合她。'}
 };
-export interface SpeakerContext {profile_version:number;speakers:{speaker:number;name:string;preset:string|null;personality:string|null}[];segments:{text:string;speakers:number[]}[]}
+export interface SpeakerContext {profile_version:number;speakers:{speaker:number;name:string;preset:string|null;personality:string|null}[];segments:{text:string;speakers:number[]}[];character_catalog?:ReferenceCatalog}
 export async function speakerContext(db:D1Database,line:Line):Promise<SpeakerContext>{
  const ids=dialogueSpeakers(line),chunks=Array.from({length:Math.ceil(ids.length/50)},(_,index)=>ids.slice(index*50,index*50+50));
  const characters=(await Promise.all(chunks.map(ids=>all<Pick<Character,'id'|'stable_key'|'kind'|'name'>>(db,'SELECT id,stable_key,kind,name FROM characters WHERE id IN('+ids.map(()=>'?').join(',')+')',...ids)))).flat();
