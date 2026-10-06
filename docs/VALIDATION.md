@@ -317,3 +317,5 @@ Node.js 24.19.0 下最终 `npm run typecheck`、`npm run build` 及 `node script
 Node.js 24.19.0 下类型检查、生产构建及 `npm run test:integration` 通过，共 595 项真实本地 HTTP 检查。新增检查实际保存并提交无链接、无上传的资料，核对 pending 状态、submitted_at、修订和表单中空链接与空附件，并重试相同提交操作；HTTP、非 URL、带账号密码的 HTTPS 均在实际提交时拒绝，失败后仍可修正提交。已有真实 R2 上传、权限、历史资料、并发及账号功能继续通过。测试仅用本地 D1/R2/DO、合成账号与 loopback 邮箱；没有生产测试身份或真实测试邮件。
 
 完整 `node scripts/private-key-browser-check.mjs` 回归通过。投稿字段在未上传时标注“作品预览链接（可选）”且无原生 required；390px Chromium 实际触控保存、检查、确认并完整提交空链接、空附件的投稿，服务端修订为空链接且状态为 pending，全程零 Enter 事件。原有桌面候选确认、底栏实际保存和定稿、1440/390/320px 布局、权限、字典历史、账号私钥、祝福语、草稿及批量台词删除继续通过。临时测试私钥和浏览器配置已清理。
+
+已推送 GitHub main 并正式发布：代码 `b4d12e8`，production Worker 版本 `e1d6fe12-cfca-462d-a4f2-62b4d9096a80`。线上常规 smoke 18 项与专项 57 项通过，登录 HTML 和全部 35 个 JS/CSS 与本地验收构建逐字节一致。使用原有 Cloudflare OAuth、production 绑定、域名和定时任务，没有远程迁移、生产资料修改、生产测试身份、真实测试邮件或新增服务；staging 未变更。
