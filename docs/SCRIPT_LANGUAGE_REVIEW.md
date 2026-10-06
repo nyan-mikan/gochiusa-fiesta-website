@@ -61,3 +61,9 @@ npx wrangler secret put SCRIPT_REVIEW_REASONING_EFFORT --env production
 ## 验证
 
 `npm run test:integration` 接入 `scripts/script-language-checks.mjs`；`node scripts/private-key-browser-check.mjs` 接入 `scripts/script-language-browser-checks.mjs`。`scripts/script-language-fixture.mjs` 在 `127.0.0.1:8040` 模拟兼容接口，验证后台请求、慢响应期间编辑、五种问题分类、请求去重、刷新恢复、持久忽略、修改/迟到结果隔离、错误与配置保密，不向真实模型发送内容。运行测试需本地 8787、8025、8040 端口空闲。详细验收记录见 [VALIDATION.md](VALIDATION.md)。
+
+## 发言角色必填
+
+有正文的台词必须指定发言角色。单人模式要求一个角色；多人/分段模式要求每个非空片段至少一个角色，合说可选择多个。缺失时立即显示红色圆形错误并进入左下角系统消息，不依赖语言审核是否配置、完成或曾被忽略；点击错误定位该句角色选择器，分段选择器会展开。选择角色后即时清除，不需要 Enter，手机点击同样生效。
+
+草稿继续自动保存，刷新后从正文与发言角色重新显示错误。检查并定稿先定位未填角色；后端也按相同规则拒绝定稿，不能通过直接调用接口绕过。纯空白待写条目、空片段、注释和小标题无需角色，不提前显示必填错误。默认角色、搜索和导出筛选也不是必填项。此必填错误不能忽略；语法、性格、称呼等已有语言建议继续作为可忽略的黄色警告。

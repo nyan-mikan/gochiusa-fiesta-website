@@ -1,4 +1,5 @@
 import {paragraphBrowserChecks} from './script-paragraph-browser-checks.mjs';
+import {speakerBrowserChecks} from './script-speaker-browser-checks.mjs';
 import {languageBrowserChecks} from './script-language-browser-checks.mjs';
 import {languageFixture,reviewFixtureVars} from './script-language-fixture.mjs';
 import {valueHelpBrowserChecks} from './value-help-browser-checks.mjs';
@@ -66,6 +67,7 @@ try{
  await accountFeaturesBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin,email,env});
  await footerBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
  await valueHelpBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
+ await speakerBrowserChecks({evaluate,cmd,click,fill,wait,origin});
   await languageBrowserChecks({evaluate,cmd,fill,wait,visible,origin,fixture:reviewFixture});
  await paragraphBrowserChecks({evaluate,cmd,fill,wait,origin,fixture:reviewFixture});
   await erpBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin,email,env});

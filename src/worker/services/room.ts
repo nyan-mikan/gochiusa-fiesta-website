@@ -3,7 +3,7 @@ import {requireModule,moduleGuard} from './module-access';
 import type {ModuleId} from '../../shared/modules';
 import { lineKind, characterOperation, scriptOperation, programInput, type Snapshot, type Program, type ScriptDocument, type Line, type Block, type Character, type CharacterList, type ProgramItem, type User, type ScriptOperation, type CharacterOperation, type ProgramInput } from '../../shared/models';
 import { actor, all, AppError, atomic, audit, cleanup, first, guard, id, now, operationResult, parse, previous, sql } from './core';
-import {dialogueSegments,splitSegments} from '../../shared/dialogue';
+import {dialogueSegments,missingDialogueSpeakers,splitSegments} from '../../shared/dialogue';
 import {hydrateLine,lineProjection,replaceSegments,validateDialogue} from './dialogue';
 import {automaticBlocks} from './script-blocks';
 
@@ -131,7 +131,7 @@ export async function scriptMutation(env:Env,sessionHash:string,eventId:string,i
   if(op.locked){
    if(!p.locked)throw new AppError(422,'请先锁定节目编排');
    const snap=await snapshot(env,eventId);if(snap.blocks.some(b=>!b.at_end && !b.at_start && !b.before_program_item_id))throw new AppError(422,'存在待重新定位的段落');
-   if(snap.lines.some(l=>lineKind(l)==='dialogue' && dialogueSegments(l).some(part=>part.text.trim()&&!part.speaker_ids.length)))throw new AppError(422,'每个非空台词片段必须指定发言角色');
+   if(snap.lines.some(l=>missingDialogueSpeakers(l).length))throw new AppError(422,'角色为必填项，请为每个非空台词片段指定发言角色');
    const frozen={...snap,seq:result.seq,document:{...d,locked:1,finalized_program_version:p.version,finalized_seq:result.seq}};
    statements.push(sql(env.DB,'INSERT INTO export_snapshots VALUES(?,?,?,?,?,?,?)',id(),p.id,p.version,result.seq,user.id,JSON.stringify(frozen),now()));
   }

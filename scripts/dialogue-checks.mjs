@@ -36,9 +36,13 @@ export async function dialogueChecks(request,base){
  const right=s.lines.find(l=>l.id===second);assert.equal(line().text+right.text,updated.map(p=>p.text).join(''));assert.deepEqual(right.segments[0].speaker_ids,updated[1].speaker_ids);
  await op({type:'line.merge',id:lid,expectedVersion:line().version,blockVersion:s.blocks.find(b=>b.id===bid).version,next_id:second,nextVersion:right.version});await read();assert.ok(line().segments.length>=2);assert.equal(s.lines.filter(l=>l.block_id===bid).length,1);
  // A text-bearing fragment must have speakers before finalization.
- await update([{text:'还未选择角色',speaker_ids:[]}]);await read();
+ await update([{text:'合说角色齐全。',speaker_ids:['builtin-chino','builtin-cocoa']},{text:'还未选择角色。',speaker_ids:[]},{text:'   ',speaker_ids:[]}]);await read();
  await request(base+'/program/lock',{operation_id:randomUUID(),expectedVersion:s.program.version,locked:true,reason:''});await read();
- await op({type:'script.lock',expectedVersion:s.document.structure_version,expectedSeq:s.seq,programVersion:s.program.version,locked:true,reason:''},422);
+ const finalize=()=>({type:'script.lock',expectedVersion:s.document.structure_version,expectedSeq:s.seq,programVersion:s.program.version,locked:true,reason:''});
+ const missingPart=await op(finalize(),422);assert.match(missingPart.error,/角色为必填项/);await read();assert.equal(s.document.locked,0);
+ await op({type:'line.update',id:lid,expectedVersion:line().version,kind:'dialogue',speaker_id:null,segments:null,text:'单人台词也必须指定角色。',direction:''});await read();
+ assert.equal(line().text,'单人台词也必须指定角色。','draft text persists without a speaker');assert.match((await op(finalize(),422)).error,/角色为必填项/);await read();
+ for(const kind of ['comment','heading','dialogue']){const text=kind==='dialogue'?'   ':'非台词条目无需角色';await op({type:'line.add',id:randomUUID(),block_id:bid,expectedVersion:s.blocks.find(b=>b.id===bid).version,kind,speaker_id:null,text,direction:''});await read();}
  await update(updated);await read();await op({type:'script.lock',expectedVersion:s.document.structure_version,expectedSeq:s.seq,programVersion:s.program.version,locked:true,reason:''});await read();
  assert.ok((await request(base+'/script/export?formal=1')).includes('香风智乃、保登心爱（合说）'));
  await update(initial,{},409);
