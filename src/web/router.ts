@@ -3,6 +3,7 @@ import { identity,session,api } from './lib/api';
 export const router=createRouter({history:createWebHistory(),routes:[
  {path:'/',redirect:'/login'},
  {path:'/login',component:()=>import('./pages/Login.vue')},
+ {path:'/account',component:()=>import('./pages/Account.vue')},
  {path:'/wishes',component:()=>import('./pages/Wishes.vue')},
  {path:'/admin/wishes',component:()=>import('./pages/WishReview.vue')},
  {path:'/submit',component:()=>import('./pages/MySubmissions.vue')},

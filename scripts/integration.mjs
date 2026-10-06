@@ -1,3 +1,4 @@
+import {privateKeyChecks} from './private-key-checks.mjs';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {dialogueChecks} from './dialogue-checks.mjs';
 import {automaticScriptChecks} from './automatic-script-checks.mjs';
@@ -8,15 +9,15 @@ const server=createServer(async(req,res)=>{let body='';for await(const chunk of 
 const env={...process.env,XDG_CONFIG_HOME:join(tmpdir(),'gochiusa-wrangler-local'),WRANGLER_LOG_PATH:join(tmpdir(),'gochiusa-wrangler-logs'),WRANGLER_SEND_METRICS:'false'};
 const worker=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--local','--port','8787'],{env,stdio:['ignore','pipe','pipe']});let output='';worker.stdout.on('data',x=>output+=x);worker.stderr.on('data',x=>output+=x);
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
-async function request(path,data,cookie='',method=data===undefined?'GET':'POST',expected=200){const r=await fetch(origin+path,{method,headers:{'CF-Connecting-IP':'203.0.113.'+(parseInt(suffix.slice(0,6),16)%254+1),...(data!==undefined?{'Content-Type':'application/json','Origin':origin,'X-Requested-With':'usagi'}:{}),...(cookie?{Cookie:cookie}:{})},body:data===undefined?undefined:JSON.stringify(data),redirect:'manual'});const body=await r.text();assert.equal(r.status,expected,`${method} ${path}: ${r.status} ${body}`);checks++;return {r,v:r.headers.get('content-type')?.includes('application/json')?JSON.parse(body):body};}
+async function request(path,data,cookie='',method=data===undefined?'GET':'POST',expected=200){const r=await fetch(origin+path,{method,headers:{'CF-Connecting-IP':'203.0.113.'+(parseInt(suffix.slice(0,6),16)%254+1),...(data!==undefined?{'Content-Type':'application/json','Origin':origin,'X-Requested-With':'usagi'}:{}),...(cookie?{Cookie:cookie}:{})},body:data===undefined?undefined:JSON.stringify(data),redirect:'manual'});const body=await r.text();assert.ok((Array.isArray(expected)?expected:[expected]).includes(r.status),`${method} ${path}: ${r.status} ${body}`);checks++;return {r,v:r.headers.get('content-type')?.includes('application/json')?JSON.parse(body):body};}
 async function login(email){const {v}=await request('/api/auth/code',{email});const message=mail.find(m=>m.to===email&&m.key==='auth:'+v.challenge_id);assert.ok(message,'OTP arrives through mail adapter');const code=message.text.match(/[0-9]{6}/)[0];assert.ok(message.html?.includes('>'+code+'</p>'),'HTML and text carry the same OTP');assert.ok(message.html.includes('Gochiusa New Year Fiesta'));assert.ok(message.html.includes('10 分钟内有效'));const {r,v:user}=await request('/api/auth/verify',{challenge_id:v.challenge_id,code});assert.match(r.headers.get('set-cookie'),/HttpOnly/);assert.match(r.headers.get('set-cookie'),/SameSite=Lax/);assert.match(r.headers.get('set-cookie'),/Max-Age=604800(?:;|$)/);return {cookie:r.headers.get('set-cookie').split(';')[0],user:user.user,challenge:v.challenge_id,code};}
 try{
  for(let i=0;i<80;i++){try{const r=await fetch(origin+'/api/health');if(r.ok)break;}catch{}if(i===79)throw new Error('Worker did not start: '+output);await pause(250);}
  const adminEmail='admin-'+suffix+'@example.test';execFileSync(process.execPath,['scripts/bootstrap-admin.mjs',adminEmail,'local'],{env,stdio:'pipe'});
  const rootEmail='super-'+suffix+'@example.test';execFileSync(process.execPath,['scripts/bootstrap-admin.mjs',rootEmail,'local','super_admin'],{env,stdio:'pipe'});const root=await login(rootEmail);assert.equal(root.user.is_super_admin,true);
  const admin=await login(adminEmail),owner=await login('owner-'+suffix+'@example.test'),other=await login('other-'+suffix+'@example.test');assert.equal(admin.user.role,'admin');assert.equal(owner.user.role,'submitter');
- { // Verify the server lifetime, not just the browser cookie.
  const localSql=query=>{const raw=execFileSync(process.execPath,['node_modules/wrangler/bin/wrangler.js','d1','execute','DB','--local','--command',query,'--json'],{env,encoding:'utf8',stdio:'pipe'});return JSON.parse(raw.slice(raw.search(/^\s*\[\s*\{/m)));};
+ { // Verify the server lifetime, not just the browser cookie.
  const ownerHash=createHash('sha256').update(owner.cookie.split('=')[1]).digest('hex');
  const row=localSql(`SELECT created_at,expires_at FROM sessions WHERE token_hash='${ownerHash}'`)[0].results[0];assert.equal(Date.parse(row.expires_at)-Date.parse(row.created_at),604800000,'D1 session expires exactly seven days after login');
  const expiredToken=randomUUID(),expiredHash=createHash('sha256').update(expiredToken).digest('hex'),expiredAt=new Date(Date.now()-1000).toISOString(),createdAt=new Date(Date.parse(expiredAt)-604800000).toISOString();
@@ -233,6 +234,7 @@ try{
  const limitSaved=(await request('/api/submissions/'+limitDraft.id,{expectedVersion:1,form:limitForm},owner.cookie,'PATCH')).v;
  await request('/api/submissions/'+limitDraft.id+'/submit',{expectedVersion:limitSaved.version,operation_id:randomUUID(),confirmed:true},owner.cookie);
  const limitDetail=(await request('/api/submissions/'+limitDraft.id,undefined,admin.cookie)).v;assert.equal(limitDetail.staff_limit,1);assert.equal(limitDetail.form.contributors.length,2);assert.ok(limitDetail.warnings.length);
+ await privateKeyChecks({request,mail,owner,other:await login('key-other-'+suffix+'@example.test'),localSql,login,origin});
  await request('/api/auth/logout',{},owner.cookie);await request('/api/me',undefined,owner.cookie,'GET',401);
  console.log(`PASS: ${checks} HTTP checks; real local D1, OTP mail adapter, immutable revisions, permissions, idempotency, review/program race protection, concurrent line writes, WebSocket, orphan retention, final export, outbox, super administrator authority, R2 multipart uploads and size limits, file ownership/ranges, Other validation, character colors, wishes text/audio/ZIP permissions and session invalidation.`);
 }catch(e){console.error(e.message);console.error(output.slice(-3000));process.exitCode=1;}finally{worker.kill('SIGTERM');server.close();}

@@ -26,3 +26,6 @@ dist/
 coverage/
 docs/screenshots/
 docs/audit/
+
+# Downloaded account login credentials
+gochiusa-private-key-*.json

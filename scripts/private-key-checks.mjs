@@ -1,0 +1,81 @@
+import assert from 'node:assert/strict';
+import {randomUUID,createHash,createHmac} from 'node:crypto';
+import {readFileSync} from 'node:fs';
+export async function privateKeyChecks({request,mail,owner,other,localSql,login,origin}){
+ const b64=value=>Buffer.from(value).toString('base64');
+ const pair=()=>crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+ const sign=async(key,message)=>b64(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},key,new TextEncoder().encode(message)));
+ const publicKey=async key=>b64(await crypto.subtle.exportKey('spki',key));
+ const cookie=r=>r.headers.get('set-cookie').split(';')[0];
+ const signature=async(proof,key)=>({challenge_id:proof.challenge_id,signature:await sign(key,proof.message)});
+ const proof=async keyId=>(await request('/api/auth/key/challenge',{key_id:keyId})).v;
+ const otp=id=>mail.find(m=>m.key==='key-issue:'+id&&m.to===owner.user.email)?.text.match(/[0-9]{6}/)[0];
+ const age=()=>localSql(`UPDATE key_email_challenges SET created_at='2000-01-01T00:00:00.000Z' WHERE user_id='${owner.user.id}'`);
+ const issue=async(session=owner.cookie)=>{age();const value=(await request('/api/account/key/code',{},session)).v;assert.ok(otp(value.challenge_id));assert.ok(value.message.includes('\nenroll-private-key\n'+origin+'\n'));return value;};
+ const payload=async(challenge,key)=>({challenge_id:challenge.challenge_id,code:otp(challenge.challenge_id),public_key:await publicKey(key.publicKey),signature:await sign(key.privateKey,challenge.message)});
+ await request('/api/account/key',undefined,'','GET',401);await request('/api/account/key/code',{},'','POST',401);
+ assert.equal((await request('/api/account/key',undefined,owner.cookie)).v.key,null);
+ const a=await pair(),b=await pair(),c=await pair();const first=(await request('/api/account/key/code',{},owner.cookie)).v;
+ const enrollment=await payload(first,a);assert.ok(enrollment.code);
+ await request('/api/account/key/code',{},owner.cookie,'POST',429);
+ await request('/api/account/key',enrollment,other.cookie,'POST',422);
+ const extraToken=randomUUID(),extraHash=createHash('sha256').update(extraToken).digest('hex');
+ localSql(`INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES('${extraHash}','${owner.user.id}','2099-01-01T00:00:00.000Z','2000-01-01T00:00:00.000Z')`);
+ await request('/api/account/key',enrollment,'usagi_session='+extraToken,'POST',422);
+ // A login OTP cannot authorize key enrollment, even for the same user.
+ if(owner.code!==enrollment.code)await request('/api/account/key',{...enrollment,code:owner.code},owner.cookie,'POST',422);
+ await request('/api/account/key',{...enrollment,signature:await sign(b.privateKey,first.message)},owner.cookie,'POST',422);
+ assert.equal((await request('/api/account/key',undefined,owner.cookie)).v.key,null);
+ const created=(await request('/api/account/key',enrollment,owner.cookie)).v.key;assert.equal(created.id,first.key_id);
+ await request('/api/account/key',enrollment,owner.cookie,'POST',422);
+ const rows=localSql(`SELECT * FROM account_login_keys WHERE user_id='${owner.user.id}'`)[0].results;
+ assert.equal(rows.length,1);assert.equal(rows[0].public_key,enrollment.public_key);assert.ok(!Object.keys(rows[0]).some(k=>k.includes('private')));
+ const loginProof=await proof(created.id),loginPayload=await signature(loginProof,a.privateKey);
+ const logged=await request('/api/auth/key/verify',loginPayload);assert.equal(logged.v.user.id,owner.user.id);
+ assert.match(logged.r.headers.get('set-cookie'),/HttpOnly/);assert.match(logged.r.headers.get('set-cookie'),/SameSite=Lax/);assert.match(logged.r.headers.get('set-cookie'),/Max-Age=604800/);
+ const keyCookie=cookie(logged.r);await request('/api/me',undefined,keyCookie);
+ await request('/api/auth/key/verify',loginPayload,'','POST',422);
+ const attempts=await proof(created.id),bad=await signature(attempts,b.privateKey);
+ for(let i=0;i<5;i++)await request('/api/auth/key/verify',bad,'','POST',422);
+ await request('/api/auth/key/verify',await signature(attempts,a.privateKey),'','POST',422);
+ const expired=await proof(created.id);localSql(`UPDATE login_key_challenges SET expires_at='2000-01-01T00:00:00.000Z' WHERE id='${expired.challenge_id}'`);
+ await request('/api/auth/key/verify',await signature(expired,a.privateKey),'','POST',422);
+ const ipProof=await proof(created.id),ipPayload=await signature(ipProof,a.privateKey);
+ const ipResult=await fetch(origin+'/api/auth/key/verify',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json','X-Requested-With':'usagi','CF-Connecting-IP':'198.51.100.10'},body:JSON.stringify(ipPayload)});assert.equal(ipResult.status,422);
+ const unknown=await proof(randomUUID());await request('/api/auth/key/verify',await signature(unknown,a.privateKey),'','POST',422);
+ const raceProof=await proof(created.id),racePayload=await signature(raceProof,a.privateKey);
+ // Same originating IP as the request helper; this fixture reads only a hash from local D1.
+ const challengeRow=localSql(`SELECT ip_hash FROM login_key_challenges WHERE id='${raceProof.challenge_id}'`)[0].results[0];assert.ok(challengeRow.ip_hash);
+ // Parallel validation through the helper must produce one success; the other is consumed or rolls back.
+ const race=await Promise.all([request('/api/auth/key/verify',racePayload,'','POST',[200,409,422]),request('/api/auth/key/verify',racePayload,'','POST',[200,409,422])]);
+ assert.equal(race.filter(r=>r.r.status===200).length,1);
+ const raceCookie=cookie(race.find(r=>r.r.status===200).r);
+ const expiredIssue=await issue();localSql(`UPDATE key_email_challenges SET expires_at='2000-01-01T00:00:00.000Z' WHERE id='${expiredIssue.challenge_id}'`);
+ await request('/api/account/key',await payload(expiredIssue,b),owner.cookie,'POST',422);
+ const wrongIssue=await issue(),wrongPayload=await payload(wrongIssue,b),wrongCode=wrongPayload.code==='000000'?'000001':'000000';
+ for(let i=0;i<5;i++)await request('/api/account/key',{...wrongPayload,code:wrongCode},owner.cookie,'POST',422);
+ await request('/api/account/key',wrongPayload,owner.cookie,'POST',422);
+ const stale=await proof(created.id),rotation=await issue(keyCookie),rotated=(await request('/api/account/key',await payload(rotation,b),keyCookie)).v.key;
+ assert.equal(rotated.id,rotation.key_id);assert.notEqual(rotated.id,created.id);
+ await request('/api/me',undefined,keyCookie);await request('/api/me',undefined,owner.cookie);
+ await request('/api/me',undefined,raceCookie,'GET',401);
+ await request('/api/auth/key/verify',await signature(stale,a.privateKey),'','POST',422);
+ const revoked=await proof(created.id);await request('/api/auth/key/verify',await signature(revoked,a.privateKey),'','POST',422);
+ const newLogin=await request('/api/auth/key/verify',await signature(await proof(rotated.id),b.privateKey));assert.equal(newLogin.v.user.id,owner.user.id);
+ // Reset only this synthetic account's local per-minute mail limiter so recovery need not wait.
+ const vars=readFileSync('.dev.vars','utf8'),secret=vars.match(/^AUTH_CODE_SECRET\s*=\s*"?([^"\r\n]+)"?/m)?.[1];assert.ok(secret);
+ const scope=createHmac('sha256',secret).update('auth-email:'+owner.user.email).digest('hex');localSql(`DELETE FROM rate_limits WHERE scope='${scope}'`);
+ const recovered=await login(owner.user.email);assert.equal(recovered.user.id,owner.user.id);
+ const recovery=await issue(recovered.cookie),recoveryPayload=await payload(recovery,c);
+ const enrollRace=await Promise.all([request('/api/account/key',recoveryPayload,recovered.cookie,'POST',[200,409,422]),request('/api/account/key',recoveryPayload,recovered.cookie,'POST',[200,409,422])]);
+ assert.equal(enrollRace.filter(r=>r.r.status===200).length,1);const third=enrollRace.find(r=>r.r.status===200).v.key;
+ await request('/api/me',undefined,cookie(newLogin.r),'GET',401);
+ // The previously retained session became mail-verified and survives later key replacements.
+ await request('/api/me',undefined,keyCookie);
+ const thirdProof=await proof(third.id);localSql(`UPDATE users SET disabled_at='2000-01-01T00:00:00.000Z' WHERE id='${owner.user.id}'`);
+ await request('/api/auth/key/verify',await signature(thirdProof,c.privateKey),'','POST',422);
+ localSql(`UPDATE users SET disabled_at=NULL WHERE id='${owner.user.id}'`);
+ assert.equal(localSql(`SELECT COUNT(*) n FROM account_login_keys WHERE user_id='${owner.user.id}' AND revoked_at IS NULL`)[0].results[0].n,1);
+ assert.equal((await request('/api/account/key',undefined,owner.cookie)).v.key.id,third.id);
+ console.log('PASS: private key enrollment, mailbox/session binding, browser-style signatures, one-use challenges, replay/race/expiry/attempt/IP checks, rotation, session revocation, disabled accounts and email recovery.');
+}

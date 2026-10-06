@@ -11,3 +11,5 @@ SMTP、Cloudflare Email 与 Resend 适配器均传递可选 HTML；收稿及审�
 截图 screenshots/login-code-email-preview.png 是首版浏览器 HTML 预览，保留的是文案精简前的历史样式；当前文字以 docs/previews/login-code-email.html 为准。验证码 052713 为固定示例，不是有效登录验证码。不声称已核对真实邮箱的到达、Outlook 或其他邮箱客户端渲染。
 
 已发布测试站与正式站；正式站发布后 18 项只读检查通过。临时预览页面和本地预览服务均已关闭。
+
+账号现支持可选的 [私钥登录](PRIVATE_KEY_LOGIN.md)。邮箱登录仍可用于丢失私钥后的找回；首次领取与每次更换私钥均独立验证账号邮箱，普通登录验证码不能用于领取私钥。

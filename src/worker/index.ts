@@ -9,6 +9,7 @@ import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import { actor, all, AppError, atomic, audit, cleanup, first, guard, id, now, parse, sessionHash, sql } from './services/core';
 import { csrf, logout, requestCode, verifyCode } from './services/auth';
+import {keyStatus,requestKeyCode,registerKey,requestKeyLogin,verifyKeyLogin} from './services/private-key';
 import { consumeOutbox } from './services/mail';
 import { listAccounts, changeAdministrator } from './services/administrators';
 import { createDraft, detail, formConfig, listSubmissions, review, saveDraft, submit } from './services/submissions';
@@ -23,8 +24,10 @@ app.use('*',async(c,next)=>{c.header('X-Content-Type-Options','nosniff');c.heade
 app.use('/api/*',async(c,next)=>bodyLimit({maxSize:c.req.method==='PUT'&&/^\/api\/wishes\/[^/]+\/audio$/.test(c.req.path)?MAX_WISH_AUDIO_SIZE:c.req.method==='PUT'&&/^\/api\/uploads\/[^/]+\/parts\/\d+$/.test(c.req.path)?UPLOAD_PART_SIZE:512*1024,onError:c=>c.json({error:'请求内容过大'},413)})(c,next));
 app.use('/api/*',async(c,next)=>{if(!['GET','HEAD','OPTIONS'].includes(c.req.method))csrf(c.req.raw);await next();});
 app.get('/api/health',async c=>{const db=await first<{ok:number}>(c.env.DB,'SELECT 1 AS ok');return c.json({status:db?.ok===1?'ok':'unavailable'},db?.ok===1?200:503);});
+app.post('/api/auth/key/challenge',requestKeyLogin);app.post('/api/auth/key/verify',verifyKeyLogin);
 app.post('/api/auth/code',requestCode);app.post('/api/auth/verify',verifyCode);app.post('/api/auth/logout',logout);
 app.use('/api/*',async(c,next)=>{if(!c.req.matchedRoutes.some(r=>r.method===c.req.method))return c.json({error:'not_found'},404);const hash=await sessionHash(c.req.raw);c.set('hash',hash);c.set('user',await actor(c.env,hash,c.req.path.startsWith('/api/admin/')));await next();});
+app.get('/api/account/key',keyStatus);app.post('/api/account/key/code',requestKeyCode);app.post('/api/account/key',registerKey);
 app.get('/api/me',c=>c.json({user:c.get('user'),mail_ready:String(c.env.MAIL_PROVIDER)!=='unconfigured'}));
 app.get('/api/admin/users',async c=>c.json(await listAccounts(c.env,c.get('user'),new URL(c.req.url).searchParams)));
 app.put('/api/admin/users/role',async c=>c.json(await changeAdministrator(c.env,c.get('user'),c.get('hash'),await c.req.json())));
@@ -81,4 +84,4 @@ app.post('/api/admin/notifications/process',async c=>{await consumeOutbox(c.env)
 app.all('/api',c=>c.json({error:'not_found'},404));app.all('/api/*',c=>c.json({error:'not_found'},404));
 app.all('*',async c=>{let path:string;try{path=decodeURIComponent(new URL(c.req.url).pathname);}catch{return c.json({error:'invalid_path'},400);}if(path==='/api'||path.startsWith('/api/'))return c.json({error:'not_found'},404);if(path!=='/'&&path!=='/login'&&!path.startsWith('/assets/')&&!path.startsWith('/images/')&&path!=='/favicon.ico'){const hash=await sessionHash(c.req.raw);try{await actor(c.env,hash,path==='/admin'||path.startsWith('/admin/'),path==='/admin/users'||path.startsWith('/admin/users/'));}catch(error){if(error instanceof AppError&&error.status===401)return c.redirect('/login?next='+encodeURIComponent(path));throw error;}}return c.env.ASSETS.fetch(c.req.raw);});
 app.onError((error,c)=>{if(error instanceof AppError)return c.json({error:error.message,details:error.details},error.status as ContentfulStatusCode);if(error instanceof HTTPException)return c.json({error:error.message},error.status);if(error instanceof SyntaxError)return c.json({error:'请求格式无效'},400);const requestId=id();console.error(JSON.stringify({event:'request_failed',request_id:requestId,error_type:error.name}));return c.json({error:'服务器处理失败',request_id:requestId},500);});
-export default {fetch:app.fetch,async scheduled(_event:ScheduledController,env:Env){await consumeOutbox(env);await cleanupUploads(env);await sql(env.DB,'DELETE FROM rate_limits WHERE expires_at<?',new Date(Date.now()-86400000).toISOString()).run();await sql(env.DB,'DELETE FROM auth_challenges WHERE expires_at<?',new Date(Date.now()-86400000).toISOString()).run();}} satisfies ExportedHandler<Env>;
+export default {fetch:app.fetch,async scheduled(_event:ScheduledController,env:Env){await consumeOutbox(env);await cleanupUploads(env);await sql(env.DB,'DELETE FROM rate_limits WHERE expires_at<?',new Date(Date.now()-86400000).toISOString()).run();await sql(env.DB,'DELETE FROM auth_challenges WHERE expires_at<?',new Date(Date.now()-86400000).toISOString()).run();for(const table of ['key_email_challenges','login_key_challenges'])await sql(env.DB,'DELETE FROM '+table+' WHERE expires_at<?',new Date(Date.now()-86400000).toISOString()).run();}} satisfies ExportedHandler<Env>;

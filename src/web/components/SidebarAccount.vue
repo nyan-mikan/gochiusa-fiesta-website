@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed,ref } from 'vue';
 import type { User } from '../../shared/models';
 
+const menu=ref<HTMLDetailsElement>();
 const props = defineProps<{ user: User | null; busy: boolean }>();
 defineEmits<{ logout: [] }>();
 const accountName = computed(() => props.user?.email.split('@')[0] || '当前账号');
@@ -11,7 +12,7 @@ const roleName = computed(() => props.user?.is_super_admin ? '超级管理员' :
 
 <template>
   <div class="sidebar-account">
-    <details class="account-card">
+    <details ref="menu" class="account-card">
       <summary :aria-label="`账户菜单：${accountName}`">
         <span class="account-avatar" aria-hidden="true">{{ initial }}</span>
         <span class="account-label">
@@ -21,6 +22,10 @@ const roleName = computed(() => props.user?.is_super_admin ? '超级管理员' :
         <svg class="account-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </summary>
       <div class="account-menu">
+        <RouterLink class="logout-card" to="/account" @click="menu?.removeAttribute('open')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg>
+          <span>账号设置</span>
+        </RouterLink>
         <button class="logout-card" :disabled="busy" @click="$emit('logout')">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M14 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M3 12h12m-5-5 5 5-5 5" />
@@ -48,7 +53,7 @@ const roleName = computed(() => props.user?.is_super_admin ? '超级管理员' :
 .account-role { color: var(--muted); font-size: 12px; }
 .account-chevron { flex-shrink: 0; color: var(--muted); transition: transform .15s; }
 .account-card[open] .account-chevron { transform: rotate(180deg); }
-.account-menu { position: absolute; bottom: calc(100% + 8px); left: 0; right: 0; z-index: 25; }
+.account-menu { position: absolute; bottom: calc(100% + 8px); left: 0; right: 0; z-index: 25; display: grid; gap: 8px; }
 @media (max-width: 760px) {
   .sidebar-account { margin-top: 12px; padding-top: 0; grid-template-columns: minmax(0, 1fr); }
   .logout-card { min-height: 60px; padding: 10px 12px; }

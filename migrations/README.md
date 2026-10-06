@@ -11,3 +11,5 @@ npm run db:migrate:production
 先核对 wrangler.jsonc 的账户和 database_id。在已经使用的数据库上追加迁移，不能清库重新初始化，也不能直接修改已应用迁移实现升级。0001 的触发器 CASE 加括号属于首次远程应用之前发现的解析兼容修复，与本地 SQL 等价。
 
 D1 batch 在断言/约束失败时整体回滚；不要通过删除 immutable 或 locked 触发器绕过业务冲突。角色归档与节目历史保留是设计要求。新增内置角色使用保留稳定 ID 的新迁移。
+
+0013_private_key_login 新增账号公钥、领取验证码、一次性签名登录挑战及私钥登录会话关联。每账号只允许一把有效公钥，轮换保留旧公钥并撤销关联会话；不保存私钥，不改变既有 sessions 列，详见 [PRIVATE_KEY_LOGIN.md](../docs/PRIVATE_KEY_LOGIN.md)。部署新增认证代码前先应用此追加迁移。

@@ -217,3 +217,11 @@ Committed portable cloud setup and AGENTS.md handoff, and changed the principal 
 移除侧栏 Logo 下方英文名称及各身份的工作台标签，保留 Logo 和功能导航。类型检查、构建通过；最终生产 HTML 和入口 JS 与构建逐字节一致，线上 18 项 smoke 通过。
 
 正式待配置活动 `fiesta-2026` 已停用（active=0、version=2），活动下拉使用的 active=1 查询只返回 `fiesta-2027`。已有 2 份投稿和 6 条主持稿保留，操作写入维护审计，外键检查无异常；此次仅调整活动状态，未删除关联数据或运行远程迁移。
+
+## 2026-10-06 私钥登录（本地验收）
+
+新增账号设置与私钥登录，详见 [PRIVATE_KEY_LOGIN.md](PRIVATE_KEY_LOGIN.md)。Node.js 24.19.0 下类型检查、构建、400 项实际本地 HTTP 集成检查、30 项脚本合并、13 项文件拖入/选择检查通过。集成测试覆盖领取与邮箱验证绑定、有效公钥唯一性、ECDSA 签名登录、登录及领取挑战并发消费、重放/过期/尝试次数/IP 拒绝、密钥轮换、旧会话撤销、禁用账号及邮箱找回。
+
+Chromium 真实浏览器流程通过：邮箱登录、侧栏账号设置、独立领取验证码、实际一次性下载、未下载离页提醒、刷新后不可重下、390px 手机页宽、原生文件选择与拖入登录、损坏及超大文件拒绝。API 请求字段检查确认没有私钥，测试下载文件与浏览器配置结束后删除。本次使用本地 D1、Worker 和 loopback 邮箱，没有发送真实邮件或写入生产数据。
+
+production 配置 Worker `--dry-run` 打包通过，绑定保持现有配置。新增 0013 只在本地应用；当前云端 Wrangler OAuth 未登录（whoami 已确认），没有执行远程迁移或线上部署。上线需重新连接 Cloudflare Auth，先应用追加迁移，再发布已验证的 Worker。
