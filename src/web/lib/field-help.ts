@@ -1,6 +1,8 @@
 export function fieldHelp(name:string,control:HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement|null){
  const rules:[RegExp,string][]=[
  [/节目名|段落标题|小标题/,'填写作品或段落的名称，使用能直接识别内容的标题。'],
+ [/^年份$/,'选择活动举办年份。点击候选入口展开年份表，输入时匹配；也可直接输入 2000–2200 之间的整数。'],
+ [/^时区$/,'选择活动使用的时区。征稿时间按所选时区显示和填写。'],
  [/节目类型/,'选择作品实际所属类型。选「其他」时，还需填写具体类型。'],
  [/^分区名称$/,'填写管理员维护的分区名称，不可与已有分区重名。修改会检查版本，历史投稿引用保留。'],
  [/平台分区 ID/,'填写 B站平台对应分区的标识；尚未核实时可以留空。'],
@@ -34,10 +36,10 @@ export function fieldHelp(name:string,control:HTMLInputElement|HTMLTextAreaEleme
  [/活动/,'选择或维护对应活动。资料和投稿按活动隔离，切换前请保存当前修改。'],
  [/台词|片段|舞台提示/,'台词 Enter 新建下一句，Ctrl / ⌘ + Enter 换行。分段台词可以选择多人合说；修改会检查版本。'],
  ];
- const result=[rules.find(([rule])=>rule.test(name))?.[1]??(control?.getAttribute('placeholder')||'填写此项对应的资料；保存或提交时会检查格式和权限。')];
+ const result=[rules.find(([rule])=>rule.test(name))?.[1]??(control?.getAttribute('placeholder')||'此字段没有预设候选值，可直接输入。')];
  if(control?.required)result.push('此项必填。');
  if(control instanceof HTMLInputElement||control instanceof HTMLTextAreaElement){if(control.maxLength>0)result.push(`最多 ${control.maxLength} 字符。`);if(control.type==='number')result.push(`数值范围：${control.getAttribute('min')||'不限'} 至 ${control.getAttribute('max')||'不限'}。`);}
- if(control instanceof HTMLSelectElement)result.push('输入关键词匹配候选项，选择后回填。F4 打开选择帮助，F1 查看帮助；取消不会改变当前值。');
+ if(control instanceof HTMLSelectElement)result.push('输入关键词匹配候选项，选择后回填。F1 / F4 展开候选表；取消不会改变当前值。');
  if((control instanceof HTMLInputElement||control instanceof HTMLTextAreaElement)&&control.readOnly)result.push('当前资料为只读。');
  return result;
 }

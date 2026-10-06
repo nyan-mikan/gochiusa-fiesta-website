@@ -1,3 +1,4 @@
+import {valueHelpBrowserChecks} from './value-help-browser-checks.mjs';
 import {footerBrowserChecks} from './footer-browser-checks.mjs';
 import {erpBrowserChecks} from './erp-browser-checks.mjs';
 import {accountFeaturesBrowserChecks} from './account-features-browser-checks.mjs';
@@ -61,7 +62,8 @@ try{
  await wait(()=>visible('是否登录「浏览器昵称」'),'drop account confirmation');assert.equal(await evaluate(`!!document.querySelector('input[type=file]')`),false);await click('确认');await wait(()=>evaluate(`location.pathname==='/submit'`),'drop key login');
  await accountFeaturesBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin,email,env});
  await footerBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
- await erpBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin,email,env});
+ await valueHelpBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
+  await erpBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin,email,env});
  assert.ok(!networkKeys.includes('private_key'));assert.equal(runtimeErrors.length,0);
  console.log('PASS: browser email login, account menu, fresh mailbox verification, actual one-time file download, refresh protection, mobile width, nickname persistence, verified account confirmation/cancel, hidden chooser, native selection, invalid/oversized file rejection and drag/drop private-key login; private key never appears in API payloads.');
 }catch(error){console.error(error.message);console.error(error.stack?.split('\n').slice(1,4).join('\n'));process.exitCode=1;}finally{socket?.close();for(const p of children)p.kill('SIGTERM');await pause(700);await rm(dir,{recursive:true,force:true});}
