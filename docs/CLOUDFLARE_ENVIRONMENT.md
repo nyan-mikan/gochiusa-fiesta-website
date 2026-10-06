@@ -81,3 +81,5 @@ R2：2026-10-04 已按维护者明确授权订阅并激活。创建 gochiusa-fie
 随后按维护者要求将正式待配置活动 `fiesta-2026` 停用：active 从 1 改为 0，version 从 1 改为 2，写入 source=authorized-maintenance-cli、actor_id=NULL 的 event/deactivate 审计。活动选择列表只保留 `2027点兔贺年祭`；原活动的 2 份投稿和 6 条主持稿保留，外键检查通过。`fiesta-2027` 状态和征稿窗口未修改。停用为生产数据操作，不需要代码部署或新的数据库迁移。
 
 2026-10-06 私钥登录已正式发布：production 应用 `0013_private_key_login.sql`，新增账号公钥、领取验证码、签名登录挑战及私钥会话关联，保留既有业务表和数据。代码提交 `6e09f63`，生产版本 `9dfde7fe-7451-4821-87f5-3e251359e29d`，此前版本为 `80cf4b4f-c7cb-4665-b1ef-a65bbc0b6169`。Cloudflare Auth 通过 Wrangler OAuth 设备授权恢复，无 API Token 或生产秘密复制。本地 400 项集成及浏览器验证完成；正式常规 smoke 18 项、专项 19 项通过，登录 HTML 和九个相关资源匹配构建，生产外键检查和原有记录数量核对通过。既有 SMTP、D1、R2、DO、定时任务和域名绑定保留，无新增服务或套餐升级。staging 本次未变更。
+
+2026-10-06 昵称及删除功能正式发布：代码提交 `cab4618`，当前 production 版本 `bcb68981-bcc5-4881-8c7d-2d2ee3518379`，前一版本 `9dfde7fe-7451-4821-87f5-3e251359e29d`。production 仅追加 0014，支持昵称、每账号每活动一则祝福语、本人未提交草稿删除、台词批量删除，以及私钥文件选择后隐藏选择区并确认账号。499 项本地集成和真实浏览器验收通过；正式域名常规检查 18 项、专项 47 项通过，HTML 和全部 31 个 JS/CSS 匹配构建。新字段、六个约束触发器、迁移记录和外键已核验，发布前后的用户/投稿/台词/祝福语数量一致。通过现有 Wrangler OAuth 发布，保持 production D1、DO、R2、SMTP、域名和定时任务；无新增服务或套餐升级，无生产测试身份、密钥或真实邮件，staging 未变更。详见 [ACCOUNT_AND_DELETION.md](ACCOUNT_AND_DELETION.md)。
