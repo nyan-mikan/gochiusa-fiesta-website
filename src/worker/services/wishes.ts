@@ -9,8 +9,15 @@ const projection='SELECT w.id,w.event_id,w.display_name,w.text,w.status,w.versio
 async function owned(env:Env,user:User,wid:string,write=false){const w=await first<Owned>(env.DB,'SELECT * FROM wishes WHERE id=?',wid);if(!w||(w.owner_user_id!==user.id&&(write||user.role!=='admin')))throw new AppError(404,'祝福语不存在');if(write&&w.status!=='draft')throw new AppError(409,'祝福语已提交');return w;}
 export async function createWish(env:Env,user:User,input:unknown){
  const v=parse(z.object({event_id:z.string().min(1).max(100),operation_id:z.string().uuid()}).strict(),input),scope='wish.create';const old=await previous<{id:string;version:number}>(env.DB,user,scope,v.operation_id,v);if(old.result)return old.result;
- const key=id(),wid=id(),result={id:wid,version:1},time=now();
- try{await atomic(env.DB,[guard(env.DB,key,'EXISTS(SELECT 1 FROM events WHERE id=? AND active=1 AND (wishes_open=1 OR ?=1)) AND (SELECT COUNT(*) FROM wishes WHERE owner_user_id=? AND status=\'draft\')<10',v.event_id,Number(user.role==='admin'),user.id),sql(env.DB,"INSERT INTO wishes(id,event_id,owner_user_id,display_name,created_at) VALUES(?,?,?,'未署名',?)",wid,v.event_id,user.id,time),operationResult(env.DB,user,scope,v.operation_id,old.hash,result),cleanup(env.DB,key)]);}catch(e){const retry=await previous<typeof result>(env.DB,user,scope,v.operation_id,v);if(retry.result)return retry.result;throw e;}return result;
+ for(let attempt=0;attempt<2;attempt++){
+  const existing=await first<{id:string;version:number;status:string}>(env.DB,"SELECT id,version,status FROM wishes WHERE event_id=? AND owner_user_id=? ORDER BY (status='submitted') DESC,created_at,id LIMIT 1",v.event_id,user.id);
+  if(existing?.status==='submitted')throw new AppError(409,'每个账号在同一活动只能投稿一则祝福语');
+  const key=id(),wid=existing?.id??id(),result={id:wid,version:existing?.version??1},time=now();
+  try{await atomic(env.DB,[guard(env.DB,key,'EXISTS(SELECT 1 FROM events WHERE id=? AND active=1 AND (wishes_open=1 OR ?=1))'+(existing?" AND EXISTS(SELECT 1 FROM wishes WHERE id=? AND status='draft') AND NOT EXISTS(SELECT 1 FROM wishes WHERE event_id=? AND owner_user_id=? AND status='submitted')":''),v.event_id,Number(user.role==='admin'),...(existing?[wid,v.event_id,user.id]:[])),
+   ...(existing?[]:[sql(env.DB,"INSERT INTO wishes(id,event_id,owner_user_id,display_name,created_at) VALUES(?,?,?,'未署名',?)",wid,v.event_id,user.id,time)]),operationResult(env.DB,user,scope,v.operation_id,old.hash,result),cleanup(env.DB,key)]);return result;
+  }catch(e){const retry=await previous<typeof result>(env.DB,user,scope,v.operation_id,v);if(retry.result)return retry.result;if(attempt===1||!(e instanceof AppError)||e.status!==409)throw e;}
+ }
+ throw new AppError(409,'祝福语状态已改变，请刷新后重试');
 }
 export async function submitWish(env:Env,user:User,hash:string,wid:string,input:unknown){
  const v=parse(z.object({display_name:z.string().trim().min(1).max(80),text:z.string().trim().min(1,'请填写祝福语文本').max(2000),expectedVersion:z.number().int().min(1),operation_id:z.string().uuid()}).strict(),input),scope='wish.submit:'+wid;const old=await previous<{ok:boolean}>(env.DB,user,scope,v.operation_id,v);if(old.result)return old.result;
@@ -21,7 +28,7 @@ export async function submitWish(env:Env,user:User,hash:string,wid:string,input:
 export async function listWishes(env:Env,user:User,params:URLSearchParams,admin=false){
  const event=params.get('event_id')??'',page=Number(params.get('page')??1),search=(params.get('search')??'').trim();if(!event||!Number.isSafeInteger(page)||page<1||page>100000||search.length>100)throw new AppError(422,'查询参数无效');
  const where=admin?"w.event_id=? AND w.status='submitted'":"w.event_id=? AND w.owner_user_id=?";const args=admin?[event]:[event,user.id];const filter=search?' AND (instr(w.display_name,?)>0 OR instr(w.text,?)>0)':'';if(search)args.push(search,search);
- return {items:await all<Wish>(env.DB,projection+' WHERE '+where+filter+' ORDER BY w.created_at DESC,w.id DESC LIMIT 30 OFFSET ?',...args,(page-1)*30),total:(await first<{n:number}>(env.DB,'SELECT COUNT(*) n FROM wishes w WHERE '+where+filter,...args))?.n??0,page,audio_ready:!!env.UPLOADS};
+ return {items:await all<Wish>(env.DB,projection+' WHERE '+where+filter+' ORDER BY w.created_at DESC,w.id DESC LIMIT 30 OFFSET ?',...args,(page-1)*30),total:(await first<{n:number}>(env.DB,'SELECT COUNT(*) n FROM wishes w WHERE '+where+filter,...args))?.n??0,page,audio_ready:!!env.UPLOADS,has_submitted:!!await first(env.DB,"SELECT id FROM wishes WHERE event_id=? AND owner_user_id=? AND status='submitted' LIMIT 1",event,user.id)};
 }
 function audioType(data:Uint8Array){const h=(offset:number,n:number)=>new TextDecoder().decode(data.subarray(offset,offset+n));if(h(0,4)==='RIFF'&&h(8,4)==='WAVE')return ['audio/wav','wav'];if(h(0,3)==='ID3'||data[0]===255&&(data[1]&0xe0)===0xe0)return ['audio/mpeg','mp3'];if(h(0,4)==='OggS')return ['audio/ogg','ogg'];if(h(0,4)==='fLaC')return ['audio/flac','flac'];if(h(4,4)==='ftyp'&&/^(M4A |M4B |isom|mp42)/.test(h(8,4)))return ['audio/mp4','m4a'];if(data[0]===0x1a&&data[1]===0x45&&data[2]===0xdf&&data[3]===0xa3)return ['audio/webm','webm'];throw new AppError(422,'请选择 MP3、WAV、M4A、OGG、FLAC 或 WebM 音频文件');}
 export async function uploadWishAudio(env:Env,user:User,wid:string,request:Request){

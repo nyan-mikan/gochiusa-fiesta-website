@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import {onMounted,onBeforeUnmount,ref} from 'vue';
 import {onBeforeRouteLeave} from 'vue-router';
+import type {User} from '../../shared/models';
 import {api,session} from '../lib/api';
 import {generateLoginKey,type KeyChallenge,type KeyInfo} from '../lib/private-key';
 import {confirmAction} from '../lib/dialog';
+const nickname=ref(session.user?.nickname??''),profileBusy=ref(false),profileError=ref(''),profileNotice=ref('');
+async function saveNickname(){profileBusy.value=true;profileError.value='';profileNotice.value='';try{const response=await api<{user:User}>('/api/account/profile',{nickname:nickname.value},'PUT');session.user=response.user;nickname.value=response.user.nickname;profileNotice.value='昵称已保存';}catch(e){profileError.value=(e as Error).message;}finally{profileBusy.value=false;}}
 const current=ref<KeyInfo|null>(null),loading=ref(true),busy=ref(false),challenge=ref<KeyChallenge|null>(null),code=ref(''),accepted=ref(false),downloadReady=ref(false),downloaded=ref(false),error=ref(''),cooldown=ref(0);
 let privateFile:string|null=null,timer:ReturnType<typeof setInterval>|undefined;
 onMounted(async()=>{try{current.value=(await api<{key:KeyInfo|null}>('/api/account/key')).key;}catch(e){error.value=(e as Error).message;}finally{loading.value=false;}});
@@ -32,7 +35,10 @@ function download(){
 <template>
  <div class="page account-page">
   <header class="page-head"><div><h1>账号设置</h1><p class="muted">{{ session.user?.email }}</p></div></header>
-  <section class="key-card">
+  <section class="key-card profile-card">
+   <h2>昵称</h2><form @submit.prevent="saveNickname"><label>用户昵称<input v-model="nickname" maxlength="40" autocomplete="nickname" placeholder="设置希望展示的名字" :disabled="profileBusy"></label><p class="hint">最多 40 字，留空时使用邮箱前缀。更改昵称不会修改已提交的祝福语署名。</p><button class="primary" :disabled="profileBusy">{{ profileBusy?'正在保存…':'保存昵称' }}</button></form><p v-if="profileError" class="alert error" role="alert">{{ profileError }}</p><p v-if="profileNotice" class="alert success" role="status">{{ profileNotice }}</p>
+  </section>
+  <section class="key-card private-key-card">
    <h2>私钥登录</h2>
    <p>保存私钥文件后，可以在登录页面选择文件登录。私钥在你的浏览器中生成，本站仅保存对应公钥。</p>
    <p v-if="loading" role="status">正在读取…</p>
@@ -62,5 +68,5 @@ function download(){
  </div>
 </template>
 <style scoped>
-.account-page{max-width:var(--page-max-width);margin:auto}.key-card{max-width:760px;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:28px}.key-card h2{margin-top:0}.key-card p{line-height:1.8}.key-notice{background:#eee4da;border-radius:12px;padding:12px 18px;margin:24px 0}.key-notice p{margin:8px 0;font-size:14px}dl{display:grid;gap:6px;margin:20px 0}dt{font-size:13px;color:var(--muted)}dd{margin:0}.fingerprint{font-family:monospace;font-size:12px;overflow-wrap:anywhere}.acknowledge{display:flex;align-items:flex-start;gap:10px;margin:20px 0;font-size:14px;line-height:1.6}.acknowledge input{width:auto;margin-top:4px}.actions{display:flex;gap:12px;flex-wrap:wrap}@media(max-width:760px){.key-card{padding:20px}}
+.profile-card{margin-bottom:24px}.account-page{max-width:var(--page-max-width);margin:auto}.key-card{max-width:760px;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:28px}.key-card h2{margin-top:0}.key-card p{line-height:1.8}.key-notice{background:#eee4da;border-radius:12px;padding:12px 18px;margin:24px 0}.key-notice p{margin:8px 0;font-size:14px}dl{display:grid;gap:6px;margin:20px 0}dt{font-size:13px;color:var(--muted)}dd{margin:0}.fingerprint{font-family:monospace;font-size:12px;overflow-wrap:anywhere}.acknowledge{display:flex;align-items:flex-start;gap:10px;margin:20px 0;font-size:14px;line-height:1.6}.acknowledge input{width:auto;margin-top:4px}.actions{display:flex;gap:12px;flex-wrap:wrap}@media(max-width:760px){.key-card{padding:20px}}
 </style>

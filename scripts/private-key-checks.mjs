@@ -8,7 +8,7 @@ export async function privateKeyChecks({request,mail,owner,other,localSql,login,
  const publicKey=async key=>b64(await crypto.subtle.exportKey('spki',key));
  const cookie=r=>r.headers.get('set-cookie').split(';')[0];
  const signature=async(proof,key)=>({challenge_id:proof.challenge_id,signature:await sign(key,proof.message)});
- const proof=async keyId=>(await request('/api/auth/key/challenge',{key_id:keyId})).v;
+ const proof=async(keyId,purpose='login')=>(await request('/api/auth/key/challenge',{key_id:keyId,purpose})).v;
  const otp=id=>mail.find(m=>m.key==='key-issue:'+id&&m.to===owner.user.email)?.text.match(/[0-9]{6}/)[0];
  const age=()=>localSql(`UPDATE key_email_challenges SET created_at='2000-01-01T00:00:00.000Z' WHERE user_id='${owner.user.id}'`);
  const issue=async(session=owner.cookie)=>{age();const value=(await request('/api/account/key/code',{},session)).v;assert.ok(otp(value.challenge_id));assert.ok(value.message.includes('\nenroll-private-key\n'+origin+'\n'));return value;};
@@ -30,6 +30,14 @@ export async function privateKeyChecks({request,mail,owner,other,localSql,login,
  await request('/api/account/key',enrollment,owner.cookie,'POST',422);
  const rows=localSql(`SELECT * FROM account_login_keys WHERE user_id='${owner.user.id}'`)[0].results;
  assert.equal(rows.length,1);assert.equal(rows[0].public_key,enrollment.public_key);assert.ok(!Object.keys(rows[0]).some(k=>k.includes('private')));
+ const countBefore=localSql(`SELECT COUNT(*) n FROM sessions WHERE user_id='${owner.user.id}'`)[0].results[0].n;
+ const identify=await proof(created.id,'identify'),identifyPayload=await signature(identify,a.privateKey);
+ await request('/api/auth/key/verify',identifyPayload,'','POST',422);
+ const identified=await request('/api/auth/key/identify',identifyPayload);assert.equal(identified.v.account_name,(await request('/api/me',undefined,owner.cookie)).v.user.nickname||owner.user.email.split('@')[0]);assert.equal(identified.r.headers.get('set-cookie'),null);
+ assert.equal(localSql(`SELECT COUNT(*) n FROM sessions WHERE user_id='${owner.user.id}'`)[0].results[0].n,countBefore,'account identification creates no session');
+ await request('/api/auth/key/identify',identifyPayload,'','POST',422);
+ const loginOnly=await proof(created.id);await request('/api/auth/key/identify',await signature(loginOnly,a.privateKey),'','POST',422);
+ const wrongIdentify=await proof(created.id,'identify');await request('/api/auth/key/identify',await signature(wrongIdentify,b.privateKey),'','POST',422);
  const loginProof=await proof(created.id),loginPayload=await signature(loginProof,a.privateKey);
  const logged=await request('/api/auth/key/verify',loginPayload);assert.equal(logged.v.user.id,owner.user.id);
  assert.match(logged.r.headers.get('set-cookie'),/HttpOnly/);assert.match(logged.r.headers.get('set-cookie'),/SameSite=Lax/);assert.match(logged.r.headers.get('set-cookie'),/Max-Age=604800/);

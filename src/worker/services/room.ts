@@ -25,7 +25,7 @@ export async function snapshot(env:Env,eventId:string):Promise<Snapshot>{
  const lists=r[6].results as CharacterList[];const members=r[7].results as {list_id:string;character_id:string}[];
  return {program,items:r[1].results as ProgramItem[],document:r[2].results[0] as ScriptDocument,blocks:r[3].results as Block[],lines:(r[4].results as Line[]).map(hydrateLine),characters:chars.map(({aliases_json,sources_json,...c})=>({...c,aliases:JSON.parse(aliases_json),sources:JSON.parse(sources_json)})),lists:lists.map(l=>({...l,members:members.filter(m=>m.list_id===l.id).map(m=>m.character_id)})),seq:program.change_seq};
 }
-interface Result {type:string;seq:number;version?:number;id?:string;line?:Line;structure_version?:number;locked?:number}
+interface Result {type:string;seq:number;ids?:string[];count?:number;version?:number;id?:string;line?:Line;structure_version?:number;locked?:number}
 function common(env:Env,user:User,sessionHash:string,p:Program,key:string){return [
  guard(env.DB,key,'EXISTS(SELECT 1 FROM programs WHERE id=? AND change_seq=?)',p.id,p.change_seq),
  guard(env.DB,key+'-auth',"EXISTS(SELECT 1 FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.disabled_at IS NULL AND u.role='admin')",sessionHash,now()),
@@ -52,6 +52,15 @@ export async function scriptMutation(env:Env,sessionHash:string,eventId:string,i
    if(after)statements.push(sql(env.DB,'UPDATE script_lines SET position=position+1 WHERE block_id=? AND deleted_at IS NULL AND position>=?',b.id,pos));
    const l:Line={id:op.id,block_id:b.id,kind,...(op.segments?{segments:op.segments}:{}),speaker_id:op.speaker_id,text:op.text,direction:op.direction,position:pos,version:1,updated_by:user.id,updated_at:now(),deleted_at:null};
    statements.push(sql(env.DB,'INSERT INTO script_lines(id,block_id,speaker_id,text,direction,position,version,updated_by,updated_at,deleted_at,kind,delivery_mode) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',l.id,l.block_id,l.speaker_id,op.segments?'':l.text,l.direction,l.position,l.version,l.updated_by,l.updated_at,null,kind,op.segments?'segments':'single'),...replaceSegments(env.DB,l.id,op.segments),sql(env.DB,'UPDATE script_blocks SET version=version+1 WHERE id=?',b.id));result.line=l;result.version=b.version+1;result.id=l.id;
+  }else if(op.type==='line.delete-many'){
+   const rows=(await all<Line>(env.DB,'SELECT '+lineProjection+' FROM script_lines l JOIN script_blocks b ON b.id=l.block_id WHERE b.document_id=? AND b.deleted_at IS NULL AND l.deleted_at IS NULL',d.id)).map(hydrateLine);
+   const selected=op.items.map(item=>{const line=rows.find(l=>l.id===item.id);if(!line)throw new AppError(404,'部分台词不存在，请刷新后重新选择');if(line.version!==item.expectedVersion)throw new AppError(409,'选中的台词已被修改，请刷新后重新确认');return line;});
+   if(new TextEncoder().encode(JSON.stringify(selected)).byteLength>1_000_000)throw new AppError(422,'选中条目的内容较多，请减少选择并分批删除');
+   const payload=JSON.stringify(op.items),time=now();
+   statements.push(guard(env.DB,key+'-entity',"(SELECT COUNT(*) FROM json_each(?) j JOIN script_lines l ON l.id=json_extract(j.value,'$.id') JOIN script_blocks b ON b.id=l.block_id WHERE b.document_id=? AND b.deleted_at IS NULL AND l.deleted_at IS NULL AND l.version=json_extract(j.value,'$.expectedVersion') AND b.version=json_extract(j.value,'$.blockVersion'))=?",payload,d.id,op.items.length),
+    sql(env.DB,"UPDATE script_lines SET deleted_at=?,version=version+1,updated_by=?,updated_at=? WHERE id IN(SELECT json_extract(value,'$.id') FROM json_each(?))",time,user.id,time,payload),
+    sql(env.DB,"UPDATE script_blocks SET version=version+1 WHERE id IN(SELECT DISTINCT block_id FROM script_lines WHERE id IN(SELECT json_extract(value,'$.id') FROM json_each(?)))",payload));
+   before=selected;result.ids=selected.map(l=>l.id);result.count=selected.length;
   }else if(op.type==='line.update' || op.type==='line.delete'){
    const rawLine=await first<Line>(env.DB,'SELECT '+lineProjection+' FROM script_lines l JOIN script_blocks b ON b.id=l.block_id WHERE l.id=? AND b.document_id=? AND l.deleted_at IS NULL AND b.deleted_at IS NULL',op.id,d.id);if(!rawLine)throw new AppError(404,'台词不存在');const l=hydrateLine(rawLine);
    if(l.version!==op.expectedVersion)throw new AppError(409,'这句台词已在另一个窗口修改，请合并', {line:l});before=l;

@@ -1,3 +1,4 @@
+import {accountFeaturesBrowserChecks} from './account-features-browser-checks.mjs';
 import {spawn} from 'node:child_process';
 import {mkdtemp,readFile,readdir,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -23,7 +24,7 @@ try{
  const evaluate=async expression=>{const r=await cmd('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw new Error('Browser evaluation failed: '+(r.exceptionDetails.exception?.description??r.exceptionDetails.text).split('\n')[0]);return r.result.value;};
  const click=label=>evaluate(`(()=>{const b=[...document.querySelectorAll('button,a')].find(b=>b.textContent.trim()===${JSON.stringify(label)});if(!b)throw Error('Missing control');b.click();return true;})()`);
  const fill=(selector,value)=>evaluate(`(()=>{const n=document.querySelector(${JSON.stringify(selector)});n.value=${JSON.stringify(value)};n.dispatchEvent(new Event('input',{bubbles:true}));return true;})()`);
- const submit=()=>evaluate(`document.querySelector('.login-panel form,.key-card form').requestSubmit()`);
+ const submit=()=>evaluate(`document.querySelector('.login-panel form,.private-key-card form').requestSubmit()`);
  const visible=text=>evaluate(`document.body.innerText.includes(${JSON.stringify(text)})`);
  const mailbox=async purpose=>{const messages=await (await fetch('http://127.0.0.1:8025/messages?to='+encodeURIComponent(email))).json();return messages.filter(m=>m.key.startsWith(purpose)).at(-1)?.text.match(/[0-9]{6}/)?.[0];};
  await cmd('Page.enable');await cmd('Runtime.enable');await cmd('Network.enable');await cmd('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:downloadDir});
@@ -31,11 +32,12 @@ try{
  await cmd('Page.navigate',{url:origin+'/login'});await wait(()=>evaluate(`!!document.querySelector('input[type=email]')`),'email UI');
  await fill('input[type=email]',email);await submit();await wait(()=>evaluate(`!!document.querySelector('input[autocomplete=one-time-code]')`),'login code UI');
  const loginCode=await mailbox('auth:');assert.ok(loginCode);await fill('input[autocomplete=one-time-code]',loginCode);await submit();await wait(()=>evaluate(`location.pathname==='/submit'`),'email login');
- await evaluate(`document.querySelector('.account-card summary').click()`);await wait(()=>visible('账号设置'),'account menu');await click('账号设置');await wait(()=>evaluate(`location.pathname==='/account'&&!!document.querySelector('.key-card button:not(:disabled)')`),'account page');
+ await evaluate(`document.querySelector('.account-card summary').click()`);await wait(()=>visible('账号设置'),'account menu');await click('账号设置');await wait(()=>evaluate(`location.pathname==='/account'&&!!document.querySelector('.private-key-card button:not(:disabled)')`),'account page');
  assert.equal(await evaluate(`document.querySelector('.account-card').open`),false);
- await click('验证邮箱，生成私钥');await wait(()=>evaluate(`!!document.querySelector('.key-card form')`),'enrollment OTP');
- const keyCode=await mailbox('key-issue:');assert.ok(keyCode);await fill('.key-card input[autocomplete=one-time-code]',keyCode);
- await evaluate(`document.querySelector('.key-card input[type=checkbox]').click()`);await submit();await wait(()=>visible('下载私钥（仅一次）'),'download offered');
+ await fill('.profile-card input[autocomplete=nickname]','浏览器昵称');await click('保存昵称');await wait(()=>visible('昵称已保存'),'nickname saved');assert.equal(await evaluate(`document.querySelector('.account-name').textContent`),'浏览器昵称');
+ await click('验证邮箱，生成私钥');await wait(()=>evaluate(`!!document.querySelector('.private-key-card form')`),'enrollment OTP');
+ const keyCode=await mailbox('key-issue:');assert.ok(keyCode);await fill('.private-key-card input[autocomplete=one-time-code]',keyCode);
+ await evaluate(`document.querySelector('.private-key-card input[type=checkbox]').click()`);await submit();await wait(()=>visible('下载私钥（仅一次）'),'download offered');
  assert.equal(await evaluate(`(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})()`),true);
  await click('下载私钥（仅一次）');await wait(async()=>(await readdir(dir)).some(f=>/^gochiusa-private-key-.*\.json$/.test(f)),'private key download');
  assert.equal(await visible('下载私钥（仅一次）'),false);assert.equal(await evaluate(`(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})()`),false);
@@ -46,15 +48,16 @@ try{
  assert.equal(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),true);
  const accountShot=await cmd('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});await writeFile('/tmp/gochiusa-private-key-account-mobile.png',Buffer.from(accountShot.data,'base64'));
  await evaluate(`document.querySelector('.account-card summary').click()`);await click('退出登录');await wait(()=>evaluate(`location.pathname==='/login'`),'logout');await click('私钥登录');await wait(()=>evaluate(`!!document.querySelector('input[type=file]')`),'private key UI');
- const root=await cmd('DOM.getDocument');const input=await cmd('DOM.querySelector',{nodeId:root.root.nodeId,selector:'input[type=file]'});await cmd('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[keyPath]});await wait(()=>visible('私钥已读取'),'native key selection');await click('使用私钥登录');await wait(()=>evaluate(`location.pathname==='/submit'`),'key login');
+ const root=await cmd('DOM.getDocument');const input=await cmd('DOM.querySelector',{nodeId:root.root.nodeId,selector:'input[type=file]'});await cmd('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[keyPath]});await wait(()=>visible('是否登录「浏览器昵称」'),'account confirmation');assert.equal(await evaluate(`!!document.querySelector('input[type=file]')`),false);assert.equal(await evaluate(`(async()=> (await fetch('/api/me')).status)()`),401);await click('取消');await wait(()=>evaluate(`!!document.querySelector('input[type=file]')`),'cancel returns chooser');const retryRoot=await cmd('DOM.getDocument');const retryInput=await cmd('DOM.querySelector',{nodeId:retryRoot.root.nodeId,selector:'input[type=file]'});await cmd('DOM.setFileInputFiles',{nodeId:retryInput.nodeId,files:[keyPath]});await wait(()=>visible('是否登录「浏览器昵称」'),'repeat confirmation');await click('确认');await wait(()=>evaluate(`location.pathname==='/submit'`),'key login');
  await evaluate(`document.querySelector('.account-card summary').click()`);await click('退出登录');await wait(()=>evaluate(`location.pathname==='/login'`),'second logout');await click('私钥登录');await wait(()=>evaluate(`!!document.querySelector('.file-dropzone')`),'drop area');
  await evaluate(`(()=>{const d=new DataTransfer();d.items.add(new File(['{}'],'invalid.json',{type:'application/json'}));document.querySelector('.file-dropzone').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:d}));})()`);
- await wait(()=>visible('私钥文件无效'),'invalid key rejected');assert.equal(await evaluate(`document.querySelector('.key-login').disabled`),true);
+ await wait(()=>visible('私钥文件无效'),'invalid key rejected');assert.equal(await evaluate(`!!document.querySelector('dialog[open]')`),false);
  await evaluate(`(()=>{const d=new DataTransfer();d.items.add(new File([' '.repeat(4097)],'oversized.json',{type:'application/json'}));document.querySelector('.file-dropzone').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:d}));})()`);
  await wait(()=>visible('私钥文件过大'),'oversized key rejected');
  // Credentials stay within the local browser and temporary test file; never print contents.
  await evaluate(`(()=>{const d=new DataTransfer();d.items.add(new File([${JSON.stringify(contents)}],'test-key.json',{type:'application/json'}));document.querySelector('.file-dropzone').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:d}));})()`);
- await wait(()=>visible('私钥已读取'),'key drag/drop');await click('使用私钥登录');await wait(()=>evaluate(`location.pathname==='/submit'`),'drop key login');
+ await wait(()=>visible('是否登录「浏览器昵称」'),'drop account confirmation');assert.equal(await evaluate(`!!document.querySelector('input[type=file]')`),false);await click('确认');await wait(()=>evaluate(`location.pathname==='/submit'`),'drop key login');
+ await accountFeaturesBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin,email,env});
  assert.ok(!networkKeys.includes('private_key'));assert.equal(runtimeErrors.length,0);
- console.log('PASS: browser email login, account menu, fresh mailbox verification, actual one-time file download, refresh protection, mobile width, native selection, invalid/oversized file rejection and drag/drop private-key login; private key never appears in API payloads.');
+ console.log('PASS: browser email login, account menu, fresh mailbox verification, actual one-time file download, refresh protection, mobile width, nickname persistence, verified account confirmation/cancel, hidden chooser, native selection, invalid/oversized file rejection and drag/drop private-key login; private key never appears in API payloads.');
 }catch(error){console.error(error.message);console.error(error.stack?.split('\n').slice(1,4).join('\n'));process.exitCode=1;}finally{socket?.close();for(const p of children)p.kill('SIGTERM');await pause(700);await rm(dir,{recursive:true,force:true});}

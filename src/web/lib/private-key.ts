@@ -3,7 +3,7 @@ const base64=(value:ArrayBuffer)=>btoa(String.fromCharCode(...new Uint8Array(val
 const bytes=(value:string)=>Uint8Array.from(atob(value),x=>x.charCodeAt(0));
 export type KeyChallenge={challenge_id:string;key_id?:string;message:string};
 export type KeyInfo={id:string;fingerprint:string;created_at:string};
-export function checkChallenge(challenge:KeyChallenge,purpose:'enroll-private-key'|'login-private-key',keyId:string){
+export function checkChallenge(challenge:KeyChallenge,purpose:'enroll-private-key'|'login-private-key'|'identify-private-key',keyId:string){
  const parts=challenge.message.split('\n');
  if(parts.length!==6||parts[0]!=='Gochiusa New Year Fiesta'||parts[1]!==purpose||parts[2]!==location.origin||parts[3]!==challenge.challenge_id||parts[4]!==keyId||!/^[a-f0-9]{64}$/.test(parts[5]!))throw new Error('登录验证信息无效，请刷新页面后重试');
 }

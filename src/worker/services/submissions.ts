@@ -11,7 +11,7 @@ export async function formConfig(env:Env){
  test_dictionary:test,uploads_enabled:!!env.UPLOADS};
 }
 export async function detail(env:Env,user:User,submissionId:string,revisionId?:string):Promise<Detail>{
- const s=await first<Submission>(env.DB,'SELECT * FROM submissions WHERE id=?',submissionId);
+ const s=await first<Submission>(env.DB,'SELECT * FROM submissions WHERE id=? AND deleted_at IS NULL',submissionId);
  if(!s || (s.owner_user_id!==user.id && user.role!=='admin'))throw new AppError(404,'投稿不存在');
  const revisions=await all<Revision>(env.DB,'SELECT * FROM submission_revisions WHERE submission_id=? ORDER BY revision_no DESC',s.id);
  const r=revisionId?revisions.find(x=>x.id===revisionId):revisions[0];if(!r)throw new AppError(404,'投稿版本不存在');
@@ -89,10 +89,24 @@ export async function review(env:Env,user:User,sid:string,input:unknown,reopen=f
   audit(env.DB,user,'submission',sid,action,{revision:data.expectedRevision,reason:data.reason}),operationResult(env.DB,user,scope,data.operation_id,old.hash,{ok:true}),cleanup(env.DB,key)]);return {ok:true};
 }
 export async function listSubmissions(env:Env,query:URLSearchParams){
- const page=Math.max(1,Number(query.get('page'))||1),limit=20;const values:unknown[]=[];let where="s.status<>'draft'";
+ const page=Math.max(1,Number(query.get('page'))||1),limit=20;const values:unknown[]=[];let where="s.deleted_at IS NULL AND s.status<>'draft'";
  for(const [key,field]of [['event','s.event_id'],['status','s.status'],['type','r.type']] as const){if(query.get(key)){where+=' AND '+field+'=?';values.push(query.get(key));}}
  const planned=query.get('planned');if(planned==='yes'||planned==='no')where+=` AND ${planned==='no'?'NOT ':''}EXISTS(SELECT 1 FROM program_items pi JOIN submission_revisions pr ON pr.id=pi.revision_id WHERE pr.submission_id=s.id)`;
  if(query.get('q')){where+=' AND (r.title LIKE ? OR p.name LIKE ? OR p.uid LIKE ?)';values.push(...Array(3).fill('%'+query.get('q')+'%'));}
  const from=' FROM submissions s JOIN submission_revisions r ON r.submission_id=s.id AND r.revision_no=(SELECT MAX(revision_no) FROM submission_revisions WHERE submission_id=s.id) LEFT JOIN revision_contacts rc ON rc.revision_id=r.id LEFT JOIN revision_people p ON p.id=rc.contact_person_id WHERE '+where;
  return {page,total:(await first<{n:number}>(env.DB,'SELECT COUNT(*) AS n'+from,...values))?.n??0,items:await all<Submission & {title:string;type:string;duration_seconds:number;revision_id:string;contact_name:string;contact_uid:string;planned:number}>(env.DB,'SELECT s.*,r.title,r.type,r.duration_seconds,r.id AS revision_id,p.name AS contact_name,p.uid AS contact_uid,EXISTS(SELECT 1 FROM program_items pi WHERE pi.revision_id=r.id) AS planned'+from+' ORDER BY s.updated_at DESC LIMIT ? OFFSET ?',...values,limit,(page-1)*limit)};
+}
+
+export async function deleteDraft(env:Env,user:User,hash:string,sid:string,input:unknown){
+ const v=parse(z.object({expectedVersion:z.number().int().min(1),operation_id:z.string().uuid()}).strict(),input),scope='submission.delete:'+sid;
+ const old=await previous<{ok:boolean}>(env.DB,user,scope,v.operation_id,v);if(old.result)return old.result;
+ const d=await detail(env,user,sid);if(d.submission.owner_user_id!==user.id)throw new AppError(403,'仅本人可以删除草稿');
+ if(d.submission.status!=='draft'||d.revisions.some(r=>r.submitted_at))throw new AppError(409,'已经提交过的投稿不能删除');
+ const key=id(),time=now();
+ await atomic(env.DB,[guard(env.DB,key,"EXISTS(SELECT 1 FROM submissions WHERE id=? AND owner_user_id=? AND version=? AND status='draft' AND deleted_at IS NULL) AND NOT EXISTS(SELECT 1 FROM submission_revisions WHERE submission_id=? AND submitted_at IS NOT NULL) AND EXISTS(SELECT 1 FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.user_id=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.disabled_at IS NULL)",sid,user.id,v.expectedVersion,sid,hash,user.id,time),
+ sql(env.DB,'UPDATE submissions SET deleted_at=?,version=version+1,updated_at=? WHERE id=?',time,time,sid),
+ sql(env.DB,'DELETE FROM revision_uploads WHERE revision_id IN(SELECT id FROM submission_revisions WHERE submission_id=?)',sid),
+ sql(env.DB,"UPDATE uploads SET state='aborted',expires_at=? WHERE submission_id=?",new Date(Date.now()-8*86400000).toISOString(),sid),
+ audit(env.DB,user,'submission',sid,'draft.delete',{}),operationResult(env.DB,user,scope,v.operation_id,old.hash,{ok:true}),cleanup(env.DB,key)]);
+ return {ok:true};
 }

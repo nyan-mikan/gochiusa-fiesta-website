@@ -1,3 +1,4 @@
+import {accountFeatureChecks} from './account-features-checks.mjs';
 import {privateKeyChecks} from './private-key-checks.mjs';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {dialogueChecks} from './dialogue-checks.mjs';
@@ -7,7 +8,7 @@ import {createServer} from 'node:http';import {execFileSync,spawn} from 'node:ch
 const origin='http://localhost:8787',suffix=randomUUID().slice(0,8),mail=[];let checks=0;
 const server=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;if(req.method==='POST'&&req.url==='/messages'){const value=JSON.parse(body);if(!mail.some(m=>m.key===value.key))mail.push(value);res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({id:'local-'+mail.length}));}else{res.writeHead(404);res.end();}});server.listen(8025,'127.0.0.1');await once(server,'listening');
 const env={...process.env,XDG_CONFIG_HOME:join(tmpdir(),'gochiusa-wrangler-local'),WRANGLER_LOG_PATH:join(tmpdir(),'gochiusa-wrangler-logs'),WRANGLER_SEND_METRICS:'false'};
-const worker=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--local','--port','8787'],{env,stdio:['ignore','pipe','pipe']});let output='';worker.stdout.on('data',x=>output+=x);worker.stderr.on('data',x=>output+=x);
+const worker=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--local','--port','8787','--test-scheduled'],{env,stdio:['ignore','pipe','pipe']});let output='';worker.stdout.on('data',x=>output+=x);worker.stderr.on('data',x=>output+=x);
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 async function request(path,data,cookie='',method=data===undefined?'GET':'POST',expected=200){const r=await fetch(origin+path,{method,headers:{'CF-Connecting-IP':'203.0.113.'+(parseInt(suffix.slice(0,6),16)%254+1),...(data!==undefined?{'Content-Type':'application/json','Origin':origin,'X-Requested-With':'usagi'}:{}),...(cookie?{Cookie:cookie}:{})},body:data===undefined?undefined:JSON.stringify(data),redirect:'manual'});const body=await r.text();assert.ok((Array.isArray(expected)?expected:[expected]).includes(r.status),`${method} ${path}: ${r.status} ${body}`);checks++;return {r,v:r.headers.get('content-type')?.includes('application/json')?JSON.parse(body):body};}
 async function login(email){const {v}=await request('/api/auth/code',{email});const message=mail.find(m=>m.to===email&&m.key==='auth:'+v.challenge_id);assert.ok(message,'OTP arrives through mail adapter');const code=message.text.match(/[0-9]{6}/)[0];assert.ok(message.html?.includes('>'+code+'</p>'),'HTML and text carry the same OTP');assert.ok(message.html.includes('Gochiusa New Year Fiesta'));assert.ok(message.html.includes('10 分钟内有效'));const {r,v:user}=await request('/api/auth/verify',{challenge_id:v.challenge_id,code});assert.match(r.headers.get('set-cookie'),/HttpOnly/);assert.match(r.headers.get('set-cookie'),/SameSite=Lax/);assert.match(r.headers.get('set-cookie'),/Max-Age=604800(?:;|$)/);return {cookie:r.headers.get('set-cookie').split(';')[0],user:user.user,challenge:v.challenge_id,code};}
@@ -69,7 +70,8 @@ try{
  assert.equal(Object.keys(await zip('text',[wish.id])).length,1);
  await request('/api/admin/wishes/export-check?event_id='+event.id+'&kind=text&ids='+randomUUID(),undefined,admin.cookie,'GET',422);
  // Audio replacement must be owner-only, draft-only and safe when an old retry arrives.
- const replacement=(await request('/api/wishes',{event_id:event.id,operation_id:randomUUID()},admin.cookie,'POST',201)).v;
+ const replacementEvent=(await request('/api/admin/events',{name:'音频替换 '+suffix,year:2027,timezone:'Asia/Shanghai',opens_at:null,closes_at:null,submissions_open:true,active:true},admin.cookie)).v;
+ const replacement=(await request('/api/wishes',{event_id:replacementEvent.id,operation_id:randomUUID()},admin.cookie,'POST',201)).v;
  const replacementPath='/api/wishes/'+replacement.id+'/audio';await wishAudioRequest(replacement.id,wave,admin.cookie);
  const remove={expectedVersion:1,expectedAudio:createHash('sha256').update(wave).digest('hex'),operation_id:randomUUID()};
  await request(replacementPath,remove,owner.cookie,'DELETE',403);await request(replacementPath,remove,root.cookie,'DELETE',404);
@@ -234,6 +236,7 @@ try{
  const limitSaved=(await request('/api/submissions/'+limitDraft.id,{expectedVersion:1,form:limitForm},owner.cookie,'PATCH')).v;
  await request('/api/submissions/'+limitDraft.id+'/submit',{expectedVersion:limitSaved.version,operation_id:randomUUID(),confirmed:true},owner.cookie);
  const limitDetail=(await request('/api/submissions/'+limitDraft.id,undefined,admin.cookie)).v;assert.equal(limitDetail.staff_limit,1);assert.equal(limitDetail.form.contributors.length,2);assert.ok(limitDetail.warnings.length);
+ await accountFeatureChecks({request,owner,other:await login('features-other-'+suffix+'@example.test'),admin,root,localSql,form,origin});
  await privateKeyChecks({request,mail,owner,other:await login('key-other-'+suffix+'@example.test'),localSql,login,origin});
  await request('/api/auth/logout',{},owner.cookie);await request('/api/me',undefined,owner.cookie,'GET',401);
  console.log(`PASS: ${checks} HTTP checks; real local D1, OTP mail adapter, immutable revisions, permissions, idempotency, review/program race protection, concurrent line writes, WebSocket, orphan retention, final export, outbox, super administrator authority, R2 multipart uploads and size limits, file ownership/ranges, Other validation, character colors, wishes text/audio/ZIP permissions and session invalidation.`);

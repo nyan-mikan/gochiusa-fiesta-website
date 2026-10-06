@@ -3,10 +3,11 @@ import DurationPicker from '../components/DurationPicker.vue';import PeopleEdito
 import {confirmAction} from '../lib/dialog';
 import { computed,ref,watch,onBeforeUnmount,nextTick } from 'vue';import { useRoute,useRouter,onBeforeRouteLeave } from 'vue-router';
 import { catalog,loadCatalog,api,session,statusName,displayTime,duration } from '../lib/api';import { completeSubmission,submissionDraft,programTypes,type SubmissionDraft,type Detail,type UploadedFile } from '../../shared/models';
+const deleting=ref(false);
 const route=useRoute(),router=useRouter(),d=ref<Detail|null>(null),error=ref(''),message=ref(''),saveState=ref(''),loaded=ref(false),confirmDialog=ref<HTMLDialogElement>(),confirmed=ref(false),submitting=ref(false);
 const blank=():SubmissionDraft=>({upload_id:null,type_other:'',category_other:'',title:'',type:'翻唱',description:'',duration_seconds:0,category_id:null,delivery_url:'',access_notes:'',notes:'',contact:{name:'',uid:''},uploader:{name:'',uid:''},contributors:[{name:'',uid:'',role_option_id:null,work_detail:'',role_other:''}]});
 const formGeneration=ref(0);const form=ref<SubmissionDraft>(blank()),uploaded=ref<UploadedFile|null>(null),uploading=ref(false);let saved='',timer:ReturnType<typeof setTimeout>|null=null,promise:Promise<void>|null=null;type FieldError={path:(string|number)[];message:string};const errors=ref<FieldError[]>([]),errorSummary=ref<HTMLElement>(),peopleEditor=ref<InstanceType<typeof PeopleEditor>>();
-const editable=computed(()=>!d.value||(['draft','rejected'].includes(d.value.submission.status)&&d.value.submission.owner_user_id===session.user?.id));
+const editable=computed(()=>!deleting.value&&(!d.value||(['draft','rejected'].includes(d.value.submission.status)&&d.value.submission.owner_user_id===session.user?.id)));
 const event=computed(()=>catalog.events.find(e=>e.id===(d.value?.submission.event_id??catalog.eventId)));
 const roles=computed(()=>catalog.config?.roles.filter(r=>r.category_id===form.value.category_id)??[]);
 const validationShown=ref(false);
@@ -33,13 +34,18 @@ function collectErrors(){errors.value=[];if(uploading.value)errors.value.push({p
 async function check(){validationShown.value=true;collectErrors();if(errors.value.length){await nextTick();errorSummary.value?.focus();return;}confirmed.value=false;confirmDialog.value?.showModal();}
 async function send(){if(submitting.value)return;submitting.value=true;error.value='';try{await save();await api('/api/submissions/'+d.value!.submission.id+'/submit',{expectedVersion:d.value!.submission.version,confirmed:true,operation_id:crypto.randomUUID()});confirmDialog.value?.close();message.value='提交成功，回执已进入通知队列。';await router.replace('/submit/'+d.value!.submission.id);await load();}catch(e){error.value=(e as Error).message;}finally{submitting.value=false;}}
 onBeforeRouteLeave(async()=>{if(uploading.value&&!await confirmAction('作品正在上传，离开将中断上传，确定离开？'))return false;if(JSON.stringify(form.value)===saved)return true;try{await save();return true;}catch{return await confirmAction('仍有未保存内容，确定离开吗？');}});
+async function deleteDraft(){
+ if(!d.value||deleting.value||uploading.value||!await confirmAction('删除这份草稿？删除后无法继续填写，已上传的文件也会被清理。'))return;
+ deleting.value=true;error.value='';if(timer)clearTimeout(timer);
+ try{if(promise)await promise;await api('/api/submissions/'+d.value.submission.id,{expectedVersion:d.value.submission.version,operation_id:crypto.randomUUID()},'DELETE');saved=JSON.stringify(form.value);await router.push('/submit');}catch(e){error.value=(e as Error).message;deleting.value=false;}
+}
 function leave(e:BeforeUnloadEvent){if(uploading.value||(editable.value&&JSON.stringify(form.value)!==saved)){e.preventDefault();e.returnValue='';}}
 window.addEventListener('beforeunload',leave);onBeforeUnmount(()=>{if(timer)clearTimeout(timer);window.removeEventListener('beforeunload',leave);});
 </script>
 <template>
   <div class="page submission-page">
     <header class="page-head"><div><RouterLink class="back" to="/submit">← 我的投稿</RouterLink><h1>{{ d?'投稿详情':'新建投稿' }}</h1></div><span v-if="d" class="badge" :class="d.submission.status">{{ statusName(d.submission.status) }}</span></header>
-    <p v-if="error" class="alert error" role="alert">{{ error }}</p><p v-if="message" class="alert success">{{ message }}</p><p v-if="!loaded" class="muted">正在读取资料…</p>
+    <button v-if="d?.submission.status==='draft'&&d.submission.owner_user_id===session.user?.id" class="danger delete-draft" :disabled="deleting||uploading" @click="deleteDraft">{{ deleting?'正在删除…':'删除草稿' }}</button><p v-if="error" class="alert error" role="alert">{{ error }}</p><p v-if="message" class="alert success">{{ message }}</p><p v-if="!loaded" class="muted">正在读取资料…</p>
     <template v-else>
 
       <p v-if="d" class="muted mono">{{ d.submission.public_number }} · 修订 {{ d.revision.revision_no }}</p>

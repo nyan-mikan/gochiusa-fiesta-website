@@ -5,7 +5,7 @@ import type { User } from '../../shared/models';
 const menu=ref<HTMLDetailsElement>();
 const props = defineProps<{ user: User | null; busy: boolean }>();
 defineEmits<{ logout: [] }>();
-const accountName = computed(() => props.user?.email.split('@')[0] || '当前账号');
+const accountName = computed(() => props.user?.nickname || props.user?.email.split('@')[0] || '当前账号');
 const initial = computed(() => Array.from(accountName.value)[0]?.toUpperCase());
 const roleName = computed(() => props.user?.is_super_admin ? '超级管理员' : props.user?.role === 'admin' ? '管理员' : '投稿者');
 </script>

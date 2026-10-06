@@ -63,27 +63,30 @@ export async function registerKey(c:C){
  return c.json({key:{id:challenge.key_id,fingerprint,created_at:time}});
 }
 export async function requestKeyLogin(c:C){
- const data=parse(z.object({key_id:z.string().uuid()}).strict(),await c.req.json());
+ const data=parse(z.object({key_id:z.string().uuid(),purpose:z.enum(['login','identify']).default('login')}).strict(),await c.req.json());
  await throttle(c.env,'key-login-ip:'+ip(c),40,600);await throttle(c.env,'key-login-key:'+data.key_id,20,600);
- const challenge=id(),time=now(),proof=message(c,'login-private-key',challenge,data.key_id);
+ const challenge=id(),time=now(),proof=message(c,data.purpose==='identify'?'identify-private-key':'login-private-key',challenge,data.key_id);
  const key=await first<{id:string}>(c.env.DB,'SELECT k.id FROM account_login_keys k JOIN users u ON u.id=k.user_id WHERE k.id=? AND k.revoked_at IS NULL AND u.disabled_at IS NULL',data.key_id);
- if(key)await sql(c.env.DB,'INSERT INTO login_key_challenges(id,key_id,message,ip_hash,expires_at,created_at) VALUES(?,?,?,?,?,?)',challenge,key.id,proof,await hmac(c.env.AUTH_CODE_SECRET,'key-ip:'+ip(c)),new Date(Date.parse(time)+120000).toISOString(),time).run();
+ if(key)await sql(c.env.DB,'INSERT INTO login_key_challenges(id,key_id,message,ip_hash,expires_at,created_at,purpose) VALUES(?,?,?,?,?,?,?)',challenge,key.id,proof,await hmac(c.env.AUTH_CODE_SECRET,'key-ip:'+ip(c)),new Date(Date.parse(time)+120000).toISOString(),time,data.purpose).run();
  // Unknown, revoked and disabled keys have the same public response.
  return c.json({challenge_id:challenge,message:proof});
 }
-export async function verifyKeyLogin(c:C){
+export const verifyKeyLogin=(c:C)=>verifyKeyChallenge(c,'login');
+export const identifyKeyAccount=(c:C)=>verifyKeyChallenge(c,'identify');
+async function verifyKeyChallenge(c:C,purpose:'login'|'identify'){
  const data=parse(z.object({challenge_id:z.string().uuid(),signature:signatureSchema}).strict(),await c.req.json());
  await throttle(c.env,'key-login-verify:'+ip(c),40,600);
- const challenge=await first<Challenge&{public_key:string;ip_hash:string}>(c.env.DB,'SELECT c.*,k.public_key FROM login_key_challenges c JOIN account_login_keys k ON k.id=c.key_id JOIN users u ON u.id=k.user_id WHERE c.id=? AND k.revoked_at IS NULL AND u.disabled_at IS NULL',data.challenge_id);
- if(!challenge||challenge.used_at||challenge.expires_at<=now()||challenge.attempts>=5||challenge.ip_hash!==await hmac(c.env.AUTH_CODE_SECRET,'key-ip:'+ip(c)))throw invalid();
+ const challenge=await first<Challenge&{public_key:string;ip_hash:string;purpose:string;nickname:string;email:string}>(c.env.DB,'SELECT c.*,k.public_key,u.nickname,u.email FROM login_key_challenges c JOIN account_login_keys k ON k.id=c.key_id JOIN users u ON u.id=k.user_id WHERE c.id=? AND k.revoked_at IS NULL AND u.disabled_at IS NULL',data.challenge_id);
+ if(!challenge||challenge.purpose!==purpose||challenge.used_at||challenge.expires_at<=now()||challenge.attempts>=5||challenge.ip_hash!==await hmac(c.env.AUTH_CODE_SECRET,'key-ip:'+ip(c)))throw invalid();
  if(!await verify(await publicKey(challenge.public_key),data.signature,challenge.message)){await sql(c.env.DB,'UPDATE login_key_challenges SET attempts=MIN(attempts+1,5) WHERE id=?',challenge.id).run();throw invalid();}
  const session=token(),hash=await sha(session),time=now(),assertion=id();
  await atomic(c.env.DB,[
-  guard(c.env.DB,assertion,'EXISTS(SELECT 1 FROM login_key_challenges c JOIN account_login_keys k ON k.id=c.key_id JOIN users u ON u.id=k.user_id WHERE c.id=? AND c.used_at IS NULL AND c.expires_at>? AND c.attempts<5 AND k.revoked_at IS NULL AND u.disabled_at IS NULL)',challenge.id,time),
+  guard(c.env.DB,assertion,'EXISTS(SELECT 1 FROM login_key_challenges c JOIN account_login_keys k ON k.id=c.key_id JOIN users u ON u.id=k.user_id WHERE c.id=? AND c.used_at IS NULL AND c.expires_at>? AND c.attempts<5 AND c.purpose=? AND k.revoked_at IS NULL AND u.disabled_at IS NULL)',challenge.id,time,purpose),
   sql(c.env.DB,'UPDATE login_key_challenges SET used_at=? WHERE id=?',time,challenge.id),
-  sql(c.env.DB,'INSERT INTO sessions(token_hash,user_id,expires_at,created_at) SELECT ?,user_id,?,? FROM account_login_keys WHERE id=?',hash,new Date(Date.parse(time)+SESSION_TTL_SECONDS*1000).toISOString(),time,challenge.key_id),
-  sql(c.env.DB,'INSERT INTO key_sessions(token_hash,key_id) VALUES(?,?)',hash,challenge.key_id),cleanup(c.env.DB,assertion)
+  ...(purpose==='login'?[sql(c.env.DB,'INSERT INTO sessions(token_hash,user_id,expires_at,created_at) SELECT ?,user_id,?,? FROM account_login_keys WHERE id=?',hash,new Date(Date.parse(time)+SESSION_TTL_SECONDS*1000).toISOString(),time,challenge.key_id),
+  sql(c.env.DB,'INSERT INTO key_sessions(token_hash,key_id) VALUES(?,?)',hash,challenge.key_id)]:[]),cleanup(c.env.DB,assertion)
  ]);
+ if(purpose==='identify')return c.json({account_name:challenge.nickname||challenge.email.split('@')[0]||'当前账号'});
  c.header('Set-Cookie',`usagi_session=${session}; Path=/; HttpOnly; ${c.env.ENVIRONMENT!=='development'?'Secure; ':''}SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`);
  return c.json({user:await actor(c.env,hash)});
 }

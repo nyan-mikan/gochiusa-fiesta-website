@@ -14,7 +14,7 @@ export async function hmac(secret:string,value:string){const key=await crypto.su
 export function cookie(request:Request,name:string){return request.headers.get('Cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(name+'='))?.slice(name.length+1)??'';}
 export async function sessionHash(request:Request){const t=cookie(request,'usagi_session');return t?sha(t):'';}
 export async function actor(env:Env,hash:string,admin=false,superAdmin=false):Promise<User>{
- const user=await first<Omit<User,'is_super_admin'> & {is_super_admin:number}>(env.DB,"SELECT u.id,u.email,u.role,EXISTS(SELECT 1 FROM user_capabilities p WHERE p.user_id=u.id AND p.capability='manage_admins') AS is_super_admin FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.disabled_at IS NULL AND NOT EXISTS(SELECT 1 FROM key_sessions ks JOIN account_login_keys k ON k.id=ks.key_id WHERE ks.token_hash=s.token_hash AND k.revoked_at IS NOT NULL)",hash,now());
+ const user=await first<Omit<User,'is_super_admin'> & {is_super_admin:number}>(env.DB,"SELECT u.id,u.email,u.nickname,u.role,EXISTS(SELECT 1 FROM user_capabilities p WHERE p.user_id=u.id AND p.capability='manage_admins') AS is_super_admin FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.disabled_at IS NULL AND NOT EXISTS(SELECT 1 FROM key_sessions ks JOIN account_login_keys k ON k.id=ks.key_id WHERE ks.token_hash=s.token_hash AND k.revoked_at IS NOT NULL)",hash,now());
  if(!user)throw new AppError(401,'请先登录');if(admin && user.role!=='admin')throw new AppError(403,'仅管理员可以访问');if(superAdmin && (user.role!=='admin'||!user.is_super_admin))throw new AppError(403,'仅超级管理员可以任免管理员');return {...user,is_super_admin:!!user.is_super_admin};
 }
 export function guard(db:D1Database,key:string,condition:string,...values:unknown[]){return sql(db,'INSERT INTO transaction_assertions(id,valid) VALUES (?,CASE WHEN '+condition+' THEN 1 ELSE 0 END)',key,...values);}
@@ -23,6 +23,8 @@ export function audit(db:D1Database,user:User,objectType:string,objectId:string,
 export async function atomic(db:D1Database,statements:D1PreparedStatement[]){
  try{return await db.batch(statements);}catch(error){
   const message=error instanceof Error?error.message:'';
+  if(/wish_limit/.test(message))throw new AppError(409,'每个账号在同一活动只能投稿一则祝福语');
+  if(/draft_deleted|draft_delete_forbidden/.test(message))throw new AppError(409,'草稿已删除或已经提交，请刷新后重试');
   if(/wish_frozen|wish_content_required|wish_audio_not_allowed|CHECK constraint failed|UNIQUE constraint failed|program_reference_exists|program_locked|invalid_program_revision|invalid_program_item|script_locked|invalid_anchor|character_scope|character_archived|revision_frozen|role_category_mismatch/.test(message))throw new AppError(409,'数据状态已改变，请核对服务器版本后重试');
   throw error;
  }

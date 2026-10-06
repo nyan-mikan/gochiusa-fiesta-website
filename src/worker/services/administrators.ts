@@ -4,7 +4,7 @@ import { all, AppError, atomic, audit, cleanup, first, guard, id, now, operation
 
 function requireSuper(user:User){if(user.role!=='admin'||!user.is_super_admin)throw new AppError(403,'仅超级管理员可以任免管理员');}
 type AccountRow=Omit<ManagedUser,'is_super_admin'> & {is_super_admin:number};
-const accountColumns="u.id,u.email,u.role,u.admin_version AS version,u.verified_at,u.created_at,EXISTS(SELECT 1 FROM user_capabilities p WHERE p.user_id=u.id AND p.capability='manage_admins') AS is_super_admin";
+const accountColumns="u.id,u.email,u.nickname,u.role,u.admin_version AS version,u.verified_at,u.created_at,EXISTS(SELECT 1 FROM user_capabilities p WHERE p.user_id=u.id AND p.capability='manage_admins') AS is_super_admin";
 export async function listAccounts(env:Env,user:User,query:URLSearchParams){
  requireSuper(user);
  const page=parse(z.coerce.number().int().min(1).max(100000),query.get('page')??1);

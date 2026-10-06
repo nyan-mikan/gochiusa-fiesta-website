@@ -32,7 +32,7 @@ export const completeSubmission = submissionDraft.superRefine((value, ctx) => {
 });
 export const programTypes=['翻唱','原创曲','宅舞','MMD','MAD或AMV','手书','配音或剧场','其他'];
 export type SubmissionDraft = z.infer<typeof submissionDraft>;
-export interface User {id:string;email:string;role:'submitter'|'admin';is_super_admin:boolean}
+export interface User {id:string;email:string;nickname:string;role:'submitter'|'admin';is_super_admin:boolean}
 export interface ManagedUser extends User {version:number;verified_at:string|null;created_at:string}
 export interface Event {id:string;name:string;year:number;timezone:string;opens_at:string|null;closes_at:string|null;submissions_open:number;wishes_open:number;active:number;version:number}
 export interface RoleOption {id:string;category_id:string;label:string;dictionary_version:number;verified_at:string|null;enabled:number;evidence_url:string}
@@ -65,6 +65,7 @@ export const scriptOperation=z.discriminatedUnion('type',[
  z.object({...operationBase,type:z.literal('line.update'),id,expectedVersion:ver,kind:entryKind,speaker_id:id.nullable(),segments,text:z.string().max(5000),direction:z.string().max(500)}).strict(),
  z.object({...operationBase,type:z.literal('line.split'),id,expectedVersion:ver,blockVersion:ver,new_id:id,offset:z.number().int().min(1)}).strict(),
  z.object({...operationBase,type:z.literal('line.merge'),id,expectedVersion:ver,blockVersion:ver,next_id:id,nextVersion:ver}).strict(),
+ z.object({...operationBase,type:z.literal('line.delete-many'),items:z.array(z.object({id,expectedVersion:ver,blockVersion:ver}).strict()).min(1).max(100).refine(items=>new Set(items.map(x=>x.id)).size===items.length,'不能重复选择台词')}).strict(),
  z.object({...operationBase,type:z.literal('line.delete'),id,expectedVersion:ver,blockVersion:ver}).strict(),
  z.object({...operationBase,type:z.literal('line.reorder'),block_id:id,expectedVersion:ver,ids:z.array(id).max(500)}).strict(),
  z.object({...operationBase,type:z.literal('block.add'),id,expectedVersion:ver,title:short,before_program_item_id:id.nullable(),at_end:z.boolean(),at_start:z.boolean().optional(),opening:z.boolean()}).strict(),
