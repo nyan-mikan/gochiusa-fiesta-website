@@ -2,8 +2,8 @@
 import {readDraft,writeDraft,clearDraft,protectUnload} from '../lib/edit-protection';
 import {confirmAction} from '../lib/dialog';import {onBeforeRouteLeave} from 'vue-router';
 import DateTimePicker from '../components/DateTimePicker.vue';
-import { ref,onMounted,watch,computed } from 'vue';import { api,catalog,loadCatalog } from '../lib/api';import type { Event,Category,RoleOption } from '../../shared/models';
-const data=ref<{events:Event[];categories:Category[];roles:RoleOption[];mail_provider:string}|null>(null),error=ref(''),notice=ref(''),selected=ref(''),busy=ref(false);
+import { ref,onMounted,watch,computed } from 'vue';import { api,catalog,loadCatalog } from '../lib/api';import type { Event } from '../../shared/models';
+const data=ref<{events:Event[];mail_provider:string}|null>(null),error=ref(''),notice=ref(''),selected=ref(''),busy=ref(false);
 const event=ref({name:'',year:new Date().getFullYear(),timezone:'Asia/Shanghai',opens_at:'',closes_at:'',submissions_open:false,wishes_open:true,active:true});
 async function load(){data.value=await api('/api/admin/settings');await loadCatalog();}
 function selectEvent(id:string){selected.value=id;const e=data.value?.events.find(x=>x.id===id);eventVersion.value=e?.version??null;event.value=e?{name:e.name,year:e.year,timezone:e.timezone,opens_at:e.opens_at??'',closes_at:e.closes_at??'',submissions_open:!!e.submissions_open,wishes_open:!!e.wishes_open,active:!!e.active}:{name:'',year:new Date().getFullYear(),timezone:'Asia/Shanghai',opens_at:'',closes_at:'',submissions_open:false,wishes_open:true,active:true};}

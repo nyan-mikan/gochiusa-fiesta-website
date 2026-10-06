@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';
 export async function erpChecks({request,root,admin,owner,login,localSql,event}){
+ const settings=(await request('/api/admin/settings',undefined,root.cookie)).v;assert.ok(!('categories'in settings)&&!('roles'in settings),'settings must not expose dictionary history');
  const path='/api/admin/bili-role-config',initial={category_id:null,expectedVersion:null,operation_id:randomUUID(),name:'ERP 字典 '+randomUUID().slice(0,8),platform_id:null,staff_limit:10,verified:true,evidence_url:'https://example.test/dictionary',labels:['演唱','混音']};
  await request(path,initial,owner.cookie,'PUT',403);await request(path,{...initial,expectedVersion:undefined},admin.cookie,'PUT',422);
  const created=(await request(path,initial,admin.cookie,'PUT')).v;assert.equal((await request(path,initial,admin.cookie,'PUT')).v.id,created.id);assert.equal(created.version,1);
