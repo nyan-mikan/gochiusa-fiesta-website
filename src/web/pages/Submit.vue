@@ -46,13 +46,13 @@ window.addEventListener('beforeunload',leave);onBeforeUnmount(()=>{if(timer)clea
 <template>
   <div class="page submission-page">
     <header class="page-head"><div><RouterLink class="back" to="/submit">← 我的投稿</RouterLink><h1>{{ d?'投稿详情':'新建投稿' }}</h1></div><span v-if="d" class="badge" :class="d.submission.status">{{ statusName(d.submission.status) }}</span></header>
-    <button v-if="d?.submission.status==='draft'&&d.submission.owner_user_id===session.user?.id" class="danger delete-draft" :disabled="deleting||uploading" @click="deleteDraft">{{ deleting?'正在删除…':'删除草稿' }}</button><p v-if="error" class="alert error" role="alert">{{ error }}</p><p v-if="message" class="alert success">{{ message }}</p><p v-if="!loaded" class="muted">正在读取资料…</p>
+    <p v-if="error" class="alert error" role="alert">{{ error }}</p><p v-if="message" class="alert success">{{ message }}</p><p v-if="!loaded" class="muted">正在读取资料…</p>
     <template v-else>
 
       <p v-if="d" class="muted mono">{{ d.submission.public_number }} · 修订 {{ d.revision.revision_no }}</p>
       <section v-if="d?.reviews.some(r=>r.action!=='approved')" class="alert warning"><h2>审核反馈</h2><p v-for="r in d.reviews.filter(r=>r.action!=='approved')" :key="r.id">{{ r.reason }} <small>{{ displayTime(r.created_at) }}</small></p></section>
       <p v-for="warning in d?.warnings??[]" :key="warning" class="alert warning">{{ warning }}</p><p v-if="event&&!event.submissions_open" class="alert warning">当前征稿尚未开放或已经结束。你可以保存草稿，开放后再提交。</p>
-      <form novalidate @submit.prevent="check" @field-validated="validationShown&&collectErrors()"><fieldset :disabled="!editable">
+      <form id="submission-form" novalidate @submit.prevent="check" @field-validated="validationShown&&collectErrors()"><fieldset :disabled="!editable">
         <section class="paper form-section" aria-labelledby="program-heading">
           <header class="form-section-head"><span class="step-number">01</span><div><h2 id="program-heading">节目资料</h2></div></header>
           <FieldLabel v-if="!d">活动<select v-model="catalog.eventId" required><option v-for="e in catalog.events" :key="e.id" :value="e.id">{{ e.name }}</option></select></FieldLabel><p v-else class="event-caption">{{ event?.name }}</p>
@@ -75,7 +75,7 @@ window.addEventListener('beforeunload',leave);onBeforeUnmount(()=>{if(timer)clea
           <details class="optional-fields" :open="!!form.notes"><summary>投稿备注（可选）</summary><FieldLabel>补充说明<textarea v-model="form.notes" rows="3" maxlength="1000" placeholder="需要向审核团队说明的事项"></textarea></FieldLabel></details>
         </section>
         <section v-if="errors.length" ref="errorSummary" tabindex="-1" class="alert error" role="alert" aria-label="请检查投稿资料"><h2>请修正以下 {{ errors.length }} 项</h2><ul><li v-for="(issue,i) in errors" :key="i"><a href="#" @click.prevent="focusError(issue)">{{ issue.message }}</a></li></ul></section>
-        <div v-if="editable" class="save-bar"><span class="muted" role="status">{{ saveState||'修改会自动保存' }}</span><div class="inline"><button type="button" @click="save().catch(()=>{})">保存草稿</button><button class="primary" :disabled="!event?.submissions_open||uploading">检查并提交</button></div></div>
+        <PageActions v-if="editable" :status="saveState||'修改会自动保存'"><button v-if="d?.submission.status==='draft'&&d.submission.owner_user_id===session.user?.id" type="button" class="danger delete-draft" :disabled="deleting||uploading||submitting" @click="deleteDraft">{{ deleting?'正在删除…':'删除草稿' }}</button><button type="button" :disabled="deleting||uploading||submitting" @click="save().catch(()=>{})">保存草稿</button><button type="submit" form="submission-form" class="primary" :disabled="!event?.submissions_open||uploading||deleting||submitting">检查并提交</button></PageActions>
       </fieldset></form>
       <p v-if="!editable" class="muted">当前资料为只读。驳回后可在同一投稿编号下修改并重交。</p>
     </template>
@@ -96,8 +96,5 @@ window.addEventListener('beforeunload',leave);onBeforeUnmount(()=>{if(timer)clea
 .optional-fields label{margin:14px 0 0}
 .feedback-email{color:#72615b;font-size:12px;line-height:1.8;margin:18px 0 0;overflow-wrap:anywhere}
 .feedback-email strong{font-weight:500;color:#78675f}
-.save-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;bottom:12px;background:#fffdf9;border:1px solid #e8ddd5;padding:16px 20px;border-radius:10px;box-shadow:0 4px 20px #5146440d;z-index:2}
-.save-bar .muted{font-size:12px}
-.save-bar .inline{flex-shrink:0}
-@media(max-width:760px){.form-section{padding:20px}.page-head h1{font-size:28px}.save-bar{flex-direction:column;align-items:stretch;padding:14px;gap:10px;bottom:calc(108px + env(safe-area-inset-bottom))}.save-bar .inline{display:grid;grid-template-columns:1fr 1fr}.save-bar button{font-size:13px;padding:10px 8px}.form-section-head{gap:10px}}
+@media(max-width:760px){.form-section{padding:20px}.page-head h1{font-size:28px}.form-section-head{gap:10px}}
 </style>

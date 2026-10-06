@@ -1,3 +1,4 @@
+import {footerBrowserChecks} from './footer-browser-checks.mjs';
 import {erpBrowserChecks} from './erp-browser-checks.mjs';
 import {accountFeaturesBrowserChecks} from './account-features-browser-checks.mjs';
 import {spawn} from 'node:child_process';
@@ -33,7 +34,7 @@ try{
  await cmd('Page.navigate',{url:origin+'/login'});await wait(()=>evaluate(`!!document.querySelector('input[type=email]')`),'email UI');
  await fill('input[type=email]',email);await submit();await wait(()=>evaluate(`!!document.querySelector('input[autocomplete=one-time-code]')`),'login code UI');
  const loginCode=await mailbox('auth:');assert.ok(loginCode);await fill('input[autocomplete=one-time-code]',loginCode);await submit();await wait(()=>evaluate(`location.pathname==='/submit'`),'email login');
- await evaluate(`document.querySelector('.account-card summary').click()`);await wait(()=>visible('账号设置'),'account menu');await click('账号设置');await wait(()=>evaluate(`location.pathname==='/account'&&!!document.querySelector('.private-key-card button:not(:disabled)')`),'account page');
+ await evaluate(`document.querySelector('.account-card summary').click()`);await wait(()=>visible('账号设置'),'account menu');await click('账号设置');await wait(()=>evaluate(`location.pathname==='/account'&&!!document.querySelector('#page-actions button[data-action=key-send]:not(:disabled)')`),'account page');
  assert.equal(await evaluate(`document.querySelector('.account-card').open`),false);
  await fill('.profile-card input[autocomplete=nickname]','浏览器昵称');await click('保存昵称');await wait(()=>visible('昵称已保存'),'nickname saved');assert.equal(await evaluate(`document.querySelector('.account-name').textContent`),'浏览器昵称');
  await click('验证邮箱，生成私钥');await wait(()=>evaluate(`!!document.querySelector('.private-key-card form')`),'enrollment OTP');
@@ -59,6 +60,7 @@ try{
  await evaluate(`(()=>{const d=new DataTransfer();d.items.add(new File([${JSON.stringify(contents)}],'test-key.json',{type:'application/json'}));document.querySelector('.file-dropzone').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:d}));})()`);
  await wait(()=>visible('是否登录「浏览器昵称」'),'drop account confirmation');assert.equal(await evaluate(`!!document.querySelector('input[type=file]')`),false);await click('确认');await wait(()=>evaluate(`location.pathname==='/submit'`),'drop key login');
  await accountFeaturesBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin,email,env});
+ await footerBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
  await erpBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin,email,env});
  assert.ok(!networkKeys.includes('private_key'));assert.equal(runtimeErrors.length,0);
  console.log('PASS: browser email login, account menu, fresh mailbox verification, actual one-time file download, refresh protection, mobile width, nickname persistence, verified account confirmation/cancel, hidden chooser, native selection, invalid/oversized file rejection and drag/drop private-key login; private key never appears in API payloads.');
