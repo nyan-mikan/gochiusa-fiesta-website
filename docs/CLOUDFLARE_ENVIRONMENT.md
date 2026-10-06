@@ -89,3 +89,5 @@ R2：2026-10-04 已按维护者明确授权订阅并激活。创建 gochiusa-fie
 557 项本地集成、30 项脚本合并、13 项文件选择/拖入与最终 Chromium 桌面/手机浏览器验收通过。线上常规 18 项、专项 55 项通过，HTML 和全部 35 个 JS/CSS 匹配最终构建；迁移记录、21 条初始授权、五个触发器、分区版本及外键已核验，发布前后原有用户、投稿、台词、祝福语和字典数量一致。通过现有 Wrangler OAuth 发布，保留 production 全部绑定与免费服务配置，无新服务、套餐升级、生产测试身份或真实测试邮件；staging 未变更。详见 [ERP_INTERACTIONS.md](ERP_INTERACTIONS.md) 和 [VALIDATION.md](VALIDATION.md)。
 
 2026-10-06 昵称提示间距修复：代码 `92fe0ab`，production 版本 `62c153a1-1068-493d-8cfe-9263d58a97c2`。昵称保存按钮与成功/错误提示增加 16px 间距；桌面和手机实际浏览器验证通过，线上 18 项常规、55 项专项通过，HTML 与 35 个 JS/CSS 匹配构建。保留全部绑定，无数据库迁移或生产资料修改，staging 未变更。
+
+2026-10-06 固定底栏发布：正式发布完成：代码 `6b381b1`，production Worker 版本 `fc92257e-6fc2-44e5-8c0c-b35b8813b022`，此前版本 `62c153a1-1068-493d-8cfe-9263d58a97c2`。线上常规 smoke 18 项及专项 55 项通过，登录 HTML 和全部 35 个 JS/CSS 逐字节匹配本地浏览器验收构建。沿用现有 Wrangler OAuth、production D1/R2/DO/SMTP/域名和定时任务；没有数据库迁移、生产测试身份、真实测试邮件、资料修改、新服务或套餐升级，staging 未变更。左侧消息数量按钮向上展开列表并支持字段定位，右侧统一排列页面保存、提交、定稿等操作；本地桌面/手机实际浏览器与 1440/390/320px 布局验收通过。详见 [ERP_INTERACTIONS.md](ERP_INTERACTIONS.md) 和 [VALIDATION.md](VALIDATION.md)。
