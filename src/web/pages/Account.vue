@@ -68,5 +68,6 @@ function download(){
  </div>
 </template>
 <style scoped>
+.profile-card>.alert{margin-top:16px}
 .profile-card{margin-bottom:24px}.account-page{max-width:var(--page-max-width);margin:auto}.key-card{max-width:760px;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:28px}.key-card h2{margin-top:0}.key-card p{line-height:1.8}.key-notice{background:#eee4da;border-radius:12px;padding:12px 18px;margin:24px 0}.key-notice p{margin:8px 0;font-size:14px}dl{display:grid;gap:6px;margin:20px 0}dt{font-size:13px;color:var(--muted)}dd{margin:0}.fingerprint{font-family:monospace;font-size:12px;overflow-wrap:anywhere}.acknowledge{display:flex;align-items:flex-start;gap:10px;margin:20px 0;font-size:14px;line-height:1.6}.acknowledge input{width:auto;margin-top:4px}.actions{display:flex;gap:12px;flex-wrap:wrap}@media(max-width:760px){.key-card{padding:20px}}
 </style>
