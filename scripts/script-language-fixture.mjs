@@ -31,6 +31,8 @@ export async function languageFixture(){
    }
    const ooc='本大爷最了不起，你们都低我一等。';
    for(const part of input.speaker_context?.segments??[])if(part.text.includes(ooc))for(const index of part.speakers){const speaker=input.speaker_context.speakers.find(s=>s.speaker===index);if(speaker?.preset==='chino')issues.push({category:'register',excerpt:ooc,problem:'这段狂妄贬低他人的话明显不符合香风智乃通常礼貌克制的性格。',suggestion:'改为礼貌、克制的表达，避免宣称自己高人一等。'});}
+   if(input.text.includes('重复标点提示'))issues.push({category:'grammar',excerpt:'...',problem:'中文省略号不应写成三个普通点。',suggestion:'将“...”改为“……”。'});
+   if(input.text.includes('重复句式提示'))issues.push({category:'register',excerpt:'今日亦安然而终矣，未知明朝又将有何光景？',problem:'香风智乃在日常聊天中堆叠文言虚词、使用仿古句式，偏离自然克制的语气。',suggestion:'改为“今天也平安地过去了，不知道明天会是什么样呢？”。'});
    if(input.text.includes('泄露测试'))issues.push({category:'other',excerpt:'泄露测试',problem:'local-review-fixture-not-a-real-key',suggestion:'local-review-fixture-model http://127.0.0.1:8040/v1/chat/completions'});
    res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({model:'local-review-fixture-model',internal_provider:'never expose',choices:[{message:{content:input.text.includes('坏结构')?'local-review-fixture-not-a-real-key':JSON.stringify({issues})}}]}));
   }catch{res.writeHead(500);res.end();}
