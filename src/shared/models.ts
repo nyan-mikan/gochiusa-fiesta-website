@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import {avatarInput} from './character-avatar';
 import type {ModuleId} from './modules';
 
 export const uid = z.string().regex(/^[0-9]*[1-9][0-9]*$/, '请填写非零的十进制 UID');
@@ -51,7 +52,7 @@ export type LineKind='dialogue'|'comment'|'heading';
 export interface DialogueSegment {text:string;speaker_ids:string[]}
 export interface Line {id:string;block_id:string;kind?:LineKind;speaker_id:string|null;segments?:DialogueSegment[];text:string;direction:string;position:number;version:number;updated_by:string;updated_at:string;deleted_at:string|null}
 export const lineKind=(line:Pick<Line,'kind'|'speaker_id'>):LineKind=>line.speaker_id==='aux-narrator'?'comment':line.kind??'dialogue';
-export interface Character {id:string;stable_key:string;event_id:string|null;kind:string;name:string;japanese_name:string;color:string;archived:number;version:number;override_version?:number;display_name?:string;hidden?:number;favorite?:number;aliases?:string[];sources?:{url:string;verification:string}[]}
+export interface Character {id:string;stable_key:string;event_id:string|null;kind:string;name:string;japanese_name:string;color:string;archived:number;version:number;override_version?:number;display_name?:string;hidden?:number;favorite?:number;aliases?:string[];sources?:{url:string;verification:string}[];avatar_url?:string;avatar_position?:string}
 export interface CharacterList {id:string;event_id:string;name:string;position:number;archived:number;version:number;members:string[]}
 export interface Snapshot {program:Program;items:ProgramItem[];document:ScriptDocument;blocks:Block[];lines:Line[];characters:Character[];lists:CharacterList[];seq:number}
 export interface Change {seq:number;type:string;payload:string;operation_id:string}
@@ -77,8 +78,8 @@ export type ScriptOperation=z.infer<typeof scriptOperation>;
 export const programInput=z.object({operation_id:id,expectedVersion:ver,starts_at:z.string().datetime().nullable(),items:z.array(z.object({id,revision_id:id.nullable(),custom_name:short.nullable(),custom_type:short.nullable(),custom_duration:z.number().int().min(1).max(86400).nullable(),notes:z.string().max(1000)}).strict()).max(500)}).strict();
 export type ProgramInput=z.infer<typeof programInput>;
 export const characterOperation=z.discriminatedUnion('type',[
- z.object({...operationBase,type:z.literal('character.add'),id,name:short.min(1),color:z.string().regex(/^#[0-9a-fA-F]{6}$/),list_id:id.nullable()}).strict(),
- z.object({...operationBase,type:z.literal('character.update'),id,expectedVersion:ver,name:short.min(1),color:z.string().regex(/^#[0-9a-fA-F]{6}$/),archived:z.boolean()}).strict(),
+ z.object({...operationBase,type:z.literal('character.add'),id,name:short.min(1),color:z.string().regex(/^#[0-9a-fA-F]{6}$/),list_id:id.nullable(),avatar:avatarInput.optional()}).strict(),
+ z.object({...operationBase,type:z.literal('character.update'),id,expectedVersion:ver,name:short.min(1),color:z.string().regex(/^#[0-9a-fA-F]{6}$/),archived:z.boolean(),avatar:avatarInput.nullable().optional()}).strict(),
  z.object({...operationBase,type:z.literal('character.override'),id,expectedVersion:pos,display_name:short.nullable(),color:z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),hidden:z.boolean(),favorite:z.boolean()}).strict(),
  z.object({...operationBase,type:z.literal('list.add'),id,name:short.min(1)}).strict(),
  z.object({...operationBase,type:z.literal('list.update'),id,expectedVersion:ver,name:short.min(1),archived:z.boolean(),members:z.array(id).max(300),position:pos}).strict(),

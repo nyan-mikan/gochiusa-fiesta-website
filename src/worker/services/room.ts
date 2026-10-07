@@ -6,6 +6,8 @@ import { actor, all, AppError, atomic, audit, cleanup, first, guard, id, now, op
 import {dialogueSegments,missingDialogueSpeakers,splitSegments} from '../../shared/dialogue';
 import {hydrateLine,lineProjection,replaceSegments,validateDialogue} from './dialogue';
 import {automaticBlocks} from './script-blocks';
+import {AVATAR_SOURCE,officialPortraits} from '../../shared/character-avatar';
+import {prepareAvatar,storedAvatar,discardAvatar} from './character-avatar';
 
 export async function context(env:Env,eventId:string){
  const p=await first<Program>(env.DB,'SELECT * FROM programs WHERE event_id=?',eventId);if(!p)throw new AppError(404,'活动节目单不存在');
@@ -25,7 +27,7 @@ export async function snapshot(env:Env,eventId:string):Promise<Snapshot>{
  const program=r[0].results[0] as Program;
  const chars=r[5].results as (Character & {aliases_json:string;sources_json:string})[];
  const lists=r[6].results as CharacterList[];const members=r[7].results as {list_id:string;character_id:string}[];
- return {program,items:r[1].results as ProgramItem[],document:r[2].results[0] as ScriptDocument,blocks:r[3].results as Block[],lines:(r[4].results as Line[]).map(hydrateLine),characters:chars.map(({aliases_json,sources_json,...c})=>({...c,aliases:JSON.parse(aliases_json),sources:JSON.parse(sources_json)})),lists:lists.map(l=>({...l,members:members.filter(m=>m.list_id===l.id).map(m=>m.character_id)})),seq:program.change_seq};
+ return {program,items:r[1].results as ProgramItem[],document:r[2].results[0] as ScriptDocument,blocks:r[3].results as Block[],lines:(r[4].results as Line[]).map(hydrateLine),characters:chars.map(({aliases_json,sources_json,...c})=>{const sources=JSON.parse(sources_json) as NonNullable<Character['sources']>,uploaded=sources.find(s=>s.verification===AVATAR_SOURCE),official=officialPortraits[c.id];return {...c,aliases:JSON.parse(aliases_json),sources:sources.filter(s=>s.verification!==AVATAR_SOURCE),...(uploaded?{avatar_url:uploaded.url}:official?{avatar_url:official.url,avatar_position:official.position}:{} )};}),lists:lists.map(l=>({...l,members:members.filter(m=>m.list_id===l.id).map(m=>m.character_id)})),seq:program.change_seq};
 }
 interface Result {type:string;seq:number;ids?:string[];count?:number;version?:number;id?:string;line?:Line;structure_version?:number;locked?:number}
 function common(env:Env,user:User,sessionHash:string,p:Program,key:string,module:ModuleId){return [
@@ -171,13 +173,18 @@ export async function programMutation(env:Env,sessionHash:string,eventId:string,
 export async function characterMutation(env:Env,sessionHash:string,eventId:string,input:unknown){
  const user=await actor(env,sessionHash,true);requireModule(user,'characters');const op=parse(characterOperation,input),{p}=await context(env,eventId),old=await previous<Result>(env.DB,user,'room:'+eventId,op.operation_id,op);if(old.result)return old.result;
  const key=id(),statements=common(env,user,sessionHash,p,key,'characters'),result:Result={type:op.type,seq:p.change_seq+1,id:op.id};
+ let uploaded:Awaited<ReturnType<typeof prepareAvatar>>|undefined,oldAvatar:string|undefined;
  if(op.type==='character.add'){
+  if(op.avatar&&await first(env.DB,'SELECT 1 FROM characters WHERE id=?',op.id))throw new AppError(409,'角色编号已存在，请刷新后重试');
   statements.push(sql(env.DB,"INSERT INTO characters(id,stable_key,event_id,kind,name,color) VALUES(?,?,?,'custom',?,?)",op.id,'custom:'+op.id,eventId,op.name,op.color));
+  if(op.avatar){uploaded=await prepareAvatar(env,user,eventId,op.id,op.avatar);statements.push(uploaded.statement);}
   if(op.list_id){statements.push(guard(env.DB,key+'-entity','EXISTS(SELECT 1 FROM character_lists WHERE id=? AND event_id=? AND archived=0)',op.list_id,eventId),sql(env.DB,'INSERT INTO character_list_members SELECT ?,?,COALESCE(MAX(position),-1)+1 FROM character_list_members WHERE list_id=?',op.list_id,op.id,op.list_id),sql(env.DB,'UPDATE character_lists SET version=version+1 WHERE id=?',op.list_id));}
   result.version=1;
  }else if(op.type==='character.update'){
   if(op.id==='aux-narrator'&&!op.archived)throw new AppError(422,'旁白角色已取消，请使用注释条目');
+  if(op.avatar!==undefined){if(!await first(env.DB,"SELECT 1 FROM characters WHERE id=? AND event_id=? AND kind='custom' AND version=?",op.id,eventId,op.expectedVersion))throw new AppError(409,'角色已被修改，请刷新后核对');oldAvatar=(await storedAvatar(env,op.id))?.url;if(op.avatar)uploaded=await prepareAvatar(env,user,eventId,op.id,op.avatar);}
   statements.push(guard(env.DB,key+'-entity',"EXISTS(SELECT 1 FROM characters WHERE id=? AND event_id=? AND kind='custom' AND version=?)",op.id,eventId,op.expectedVersion),sql(env.DB,'UPDATE characters SET name=?,color=?,archived=?,version=version+1 WHERE id=?',op.name,op.color,Number(op.archived),op.id));result.version=op.expectedVersion+1;
+  if(op.avatar!==undefined){statements.push(sql(env.DB,'DELETE FROM character_sources WHERE character_id=? AND verification=?',op.id,AVATAR_SOURCE));if(uploaded)statements.push(uploaded.statement);}
  }else if(op.type==='character.override'){
   statements.push(guard(env.DB,key+'-entity','EXISTS(SELECT 1 FROM characters WHERE id=? AND (event_id IS NULL OR event_id=?)) AND COALESCE((SELECT version FROM event_character_overrides WHERE event_id=? AND character_id=?),0)=?',op.id,eventId,eventId,op.id,op.expectedVersion),sql(env.DB,'INSERT INTO event_character_overrides(event_id,character_id,display_name,hidden,favorite,color,version) VALUES(?,?,?,?,?,?,1) ON CONFLICT(event_id,character_id) DO UPDATE SET display_name=excluded.display_name,hidden=excluded.hidden,favorite=excluded.favorite,color=COALESCE(excluded.color,event_character_overrides.color),version=event_character_overrides.version+1',eventId,op.id,op.display_name,Number(op.hidden),Number(op.favorite),op.color??null));result.version=op.expectedVersion+1;
  }else if(op.type==='list.add'){
@@ -191,5 +198,5 @@ export async function characterMutation(env:Env,sessionHash:string,eventId:strin
    ))`,op.id,eventId,op.expectedVersion,JSON.stringify(op.members),eventId,op.id),sql(env.DB,'UPDATE character_lists SET name=?,archived=?,position=?,version=version+1 WHERE id=?',op.name,Number(op.archived),op.position,op.id),sql(env.DB,'DELETE FROM character_list_members WHERE list_id=?',op.id));
   op.members.forEach((char,i)=>statements.push(sql(env.DB,'INSERT INTO character_list_members VALUES(?,?,?)',op.id,char,i)));result.version=op.expectedVersion+1;
  }
- statements.push(cleanup(env.DB,key+'-entity'),...end(env,user,p,key,op.operation_id,old.hash,result));await atomic(env.DB,statements);return result;
+ statements.push(cleanup(env.DB,key+'-entity'),...end(env,user,p,key,op.operation_id,old.hash,result));try{await atomic(env.DB,statements);}catch(e){if(uploaded&&uploaded.url!==oldAvatar)await discardAvatar(env,uploaded.url);throw e;}if(oldAvatar&&oldAvatar!==uploaded?.url)await discardAvatar(env,oldAvatar);return result;
 }

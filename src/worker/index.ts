@@ -2,6 +2,7 @@ import {paragraphReviews,ignoreParagraphIssue} from './services/script-paragraph
 import {canAccess,moduleForChange} from '../shared/modules';
 import {createWish,submitWish,listWishes,uploadWishAudio,removeWishAudio,wishAudio,exportWishes} from './services/wishes';
 import {MAX_WISH_AUDIO_SIZE} from '../shared/wishes';
+import {characterAvatar} from './services/character-avatar';
 import {createUpload,uploadPart,completeUpload,abortUpload,downloadUpload,cleanupUploads} from './services/uploads';
 import {UPLOAD_PART_SIZE} from '../shared/uploads';
 import { Hono } from 'hono';
@@ -38,6 +39,7 @@ app.use('/api/*',async(c,next)=>{if(!c.req.matchedRoutes.some(r=>r.method===c.re
 app.put('/api/account/profile',async c=>c.json(await updateNickname(c.env,c.get('user'),c.get('hash'),await c.req.json())));
 app.get('/api/account/key',keyStatus);app.post('/api/account/key/code',requestKeyCode);app.post('/api/account/key',registerKey);
 app.get('/api/me',c=>c.json({user:c.get('user'),mail_ready:String(c.env.MAIL_PROVIDER)!=='unconfigured'}));
+app.get('/api/character-avatars/:event/:character/:digest',async c=>characterAvatar(c.env,c.get('user'),c.req.param('event'),c.req.param('character'),c.req.param('digest')));
 app.get('/api/admin/users',async c=>c.json(await listAccounts(c.env,c.get('user'),new URL(c.req.url).searchParams)));
 app.put('/api/admin/users/role',async c=>c.json(await changeAdministrator(c.env,c.get('user'),c.get('hash'),await c.req.json())));
 app.get('/api/wishes',async c=>c.json(await listWishes(c.env,c.get('user'),new URL(c.req.url).searchParams)));

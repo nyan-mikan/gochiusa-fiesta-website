@@ -7,6 +7,7 @@ import {privateKeyChecks} from './private-key-checks.mjs';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {dialogueChecks} from './dialogue-checks.mjs';
 import {characterListChecks} from './character-list-checks.mjs';
+import {characterAvatarChecks} from './character-avatar-checks.mjs';
 import {automaticScriptChecks} from './automatic-script-checks.mjs';
 import {unzipSync,strFromU8} from 'fflate';
 import {createServer} from 'node:http';import {execFileSync,spawn} from 'node:child_process';import assert from 'node:assert/strict';import {randomUUID,createHash} from 'node:crypto';import {once} from 'node:events';import WebSocket from 'ws';
@@ -202,6 +203,7 @@ try{
  await request(upBase,{expectedVersion:upDetail.submission.version,form:{...upForm,upload_id:null}},owner.cookie,'PATCH',409);
  await request('/api/uploads/'+file.id,{},owner.cookie,'DELETE',409);
  await characterListChecks(async(path,data,method=data===undefined?'GET':'POST',status=200)=>(await request(path,data,admin.cookie,method,status)).v,base);
+ await characterAvatarChecks({request,base,adminCookie:admin.cookie,ownerCookie:owner.cookie,origin});
  const characterSnapshot=(await request(base+'/characters',undefined,admin.cookie)).v;assert.equal(characterSnapshot.characters.filter(c=>c.kind==='builtin'&&!c.archived).length,11);assert.ok(characterSnapshot.characters.some(c=>c.id==='builtin-tippy'&&!c.archived));checks++;
  const cocoa=characterSnapshot.characters.find(c=>c.id==='builtin-cocoa');assert.equal(cocoa.color,'#FDD5D5');
  await request(base+'/characters/operations',{operation_id:randomUUID(),type:'character.override',id:cocoa.id,expectedVersion:cocoa.override_version,display_name:null,color:'#FF1122',hidden:false,favorite:true},admin.cookie);

@@ -4,6 +4,7 @@ import type {Character,CharacterList} from '../../shared/models';
 import {api,ApiError} from '../lib/api';
 import {orderCharacters} from '../lib/character-order';
 import ModalDialog from './ModalDialog.vue';
+import CharacterAvatar from './CharacterAvatar.vue';
 
 const props=defineProps<{eventId:string;list:CharacterList;characters:Character[]}>();
 const emit=defineEmits<{close:[];added:[count:number,eventId:string,name:string];busy:[value:boolean]}>();
@@ -49,7 +50,7 @@ async function add(){
   <FieldLabel>查找角色<input v-model="query" type="search" autofocus :disabled="busy" placeholder="中文名 / 日文名 / 别名" aria-label="查找要加入列表的角色"></FieldLabel>
   <p class="hint" role="status">已选择 {{ selected.length }} 位 · {{ visible.length }} 位可选{{ remaining===0?' · 列表已满，请先移除角色':'' }}</p>
   <div class="member-candidates" role="group" aria-label="可添加的角色" :aria-busy="busy">
-   <label v-for="c in visible" :key="c.id" class="member-choice" :class="{selected:selected.includes(c.id)}"><input v-model="selected" type="checkbox" :value="c.id" :disabled="busy||unavailable||(!selected.includes(c.id)&&selected.length>=remaining)" :aria-label="'选择 '+(c.display_name??c.name)"><span class="member-color" :style="{backgroundColor:c.color}" aria-hidden="true"></span><span class="member-name"><strong>{{ c.display_name??c.name }}</strong><small v-if="c.japanese_name">{{ c.japanese_name }}</small><small v-if="c.hidden">已隐藏</small></span></label>
+   <label v-for="c in visible" :key="c.id" class="member-choice" :class="{selected:selected.includes(c.id)}"><input v-model="selected" type="checkbox" :value="c.id" :disabled="busy||unavailable||(!selected.includes(c.id)&&selected.length>=remaining)" :aria-label="'选择 '+(c.display_name??c.name)"><CharacterAvatar :character="c" class="member-avatar"/><span class="member-name"><strong>{{ c.display_name??c.name }}</strong><small v-if="c.japanese_name">{{ c.japanese_name }}</small><small v-if="c.hidden">已隐藏</small></span></label>
    <p v-if="!visible.length" class="empty">{{ candidates.length?'没有匹配的角色，请修改搜索。':'没有可添加的角色。可在角色库中新增角色。' }}</p>
   </div>
   <div class="member-actions"><button type="button" :disabled="busy" @click="close">取消</button><button type="button" :disabled="busy" @click="refresh">刷新列表</button><button type="button" class="primary" :disabled="busy||conflict||unavailable||!selected.length||selected.length>remaining" @click="add">{{ busy?'正在处理…':'添加已选（'+selected.length+'）' }}</button></div>
@@ -57,6 +58,6 @@ async function add(){
 </ModalDialog></template>
 
 <style scoped>
-.list-member-picker{min-width:0}.member-candidates{max-height:38dvh;overflow:auto;border-block:1px solid var(--line);padding:8px 0}.member-choice{display:flex;align-items:center;gap:12px;min-height:54px;margin:4px 0;padding:10px;border:1px solid transparent;border-radius:8px;cursor:pointer}.member-choice:hover{background:#f2f6fb}.member-choice.selected{background:#edf4ff;border-color:#aecbf0}.member-choice input{width:18px;height:18px;min-height:18px;flex-shrink:0;margin:0}.member-color{width:12px;height:28px;border-radius:4px;flex-shrink:0}.member-name{min-width:0;overflow-wrap:anywhere}.member-name strong{display:block;font-size:14px}.member-name small{display:block}.member-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:18px}.empty{padding:16px}.list-member-picker .alert{overflow-wrap:anywhere}
+.list-member-picker{min-width:0}.member-candidates{max-height:38dvh;overflow:auto;border-block:1px solid var(--line);padding:8px 0}.member-choice{display:flex;align-items:center;gap:12px;min-height:54px;margin:4px 0;padding:10px;border:1px solid transparent;border-radius:8px;cursor:pointer}.member-choice:hover{background:#f2f6fb}.member-choice.selected{background:#edf4ff;border-color:#aecbf0}.member-choice input{width:18px;height:18px;min-height:18px;flex-shrink:0;margin:0}.member-avatar{width:44px;height:44px;border-radius:8px;font-size:18px}.member-name{min-width:0;overflow-wrap:anywhere}.member-name strong{display:block;font-size:14px}.member-name small{display:block}.member-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:18px}.empty{padding:16px}.list-member-picker .alert{overflow-wrap:anywhere}
 @media(max-width:760px){.member-choice{min-height:48px}.member-actions button{min-height:44px}.member-actions{gap:6px}}
 </style>
