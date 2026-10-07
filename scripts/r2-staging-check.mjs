@@ -1,3 +1,4 @@
+import {videoMp4} from './video-fixture.mjs';
 // Real private R2 validation, staging only. Test sessions are revoked in finally.
 import {execFileSync} from 'node:child_process';
 import {writeFileSync,mkdtempSync,rmSync} from 'node:fs';
@@ -58,10 +59,10 @@ try{
  const base='/api/submissions/'+draft.id+'/uploads';
  await json(base,{filename:'过大.bin',size:1000000001,content_type:'application/octet-stream'},'POST',422);
  await json(base,{filename:'越权.bin',size:12,content_type:'application/octet-stream'},'POST',404,other);
- const boundary=await json(base,{filename:'最大声明.bin',size:1000000000,content_type:'application/octet-stream'},'POST',201);
+ const boundary=await json(base,{filename:'最大声明.mp4',size:1000000000,content_type:'application/octet-stream'},'POST',201);
  await json('/api/uploads/'+boundary.id,{},'DELETE');
- const upload=await json(base,{filename:'云端分片验收.bin',size:10485787,content_type:'application/octet-stream'},'POST',201);
- assert.equal(upload.part_size,10485760);const data=Buffer.alloc(upload.part_size+27,65);data.fill(66,upload.part_size);const up='/api/uploads/'+upload.id;
+ const upload=await json(base,{filename:'云端分片验收.mp4',size:10485787,content_type:'application/octet-stream'},'POST',201);
+ assert.equal(upload.part_size,10485760);const data=videoMp4(upload.part_size+27);data.fill(66,upload.part_size);const up='/api/uploads/'+upload.id;
  await put(up+'/parts/1',data.subarray(0,upload.part_size),404,other,{'Content-Type':'application/octet-stream'});
  await put(up+'/parts/1',data.subarray(0,upload.part_size),200,admin,{'Content-Type':'application/octet-stream'});
  await put(up+'/parts/1',data.subarray(0,upload.part_size),200,admin,{'Content-Type':'application/octet-stream'});

@@ -23,3 +23,5 @@ D1 batch 在断言/约束失败时整体回滚；不要通过删除 immutable �
 0017_language_speaker_context.sql：为每个新审核标识增加不可改写的角色性格及片段发言归属快照。旧审核标识、正文、结果和忽略记录保留，不回填或重发。
 
 0018_paragraph_reviews.sql：追加段落可选场景/地点，及段落审核、冻结台词输入、问题、相关台词和按用户忽略表。台词、单句结果和原忽略记录保留，反馈输入与结果不可改写。使用新段落代码前先应用此增量迁移，详见 [SCRIPT_PARAGRAPH_REVIEW.md](../docs/SCRIPT_PARAGRAPH_REVIEW.md)。
+
+0019_video_deliveries.sql：新增视频验证和一次性补交关系，保护冻结修订、原始文件、同投稿文件范围及已交付关系。新代码部署前必须先应用。仅追加表/索引/触发器，不回填、更新或删除生产业务记录。本轮只应用本地迁移；远程应用需按用户原有约束单独获准。见 [UPLOADS.md](../docs/UPLOADS.md)。

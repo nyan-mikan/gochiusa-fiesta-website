@@ -25,7 +25,7 @@ export async function atomic(db:D1Database,statements:D1PreparedStatement[]){
   const message=error instanceof Error?error.message:'';
   if(/wish_limit/.test(message))throw new AppError(409,'每个账号在同一活动只能投稿一则祝福语');
   if(/draft_deleted|draft_delete_forbidden/.test(message))throw new AppError(409,'草稿已删除或已经提交，请刷新后重试');
-  if(/wish_frozen|wish_content_required|wish_audio_not_allowed|CHECK constraint failed|UNIQUE constraint failed|program_reference_exists|program_locked|invalid_program_revision|invalid_program_item|script_locked|invalid_anchor|character_scope|character_archived|revision_frozen|role_category_mismatch/.test(message))throw new AppError(409,'数据状态已改变，请核对服务器版本后重试');
+  if(/delivery_unavailable|video_required|wish_frozen|wish_content_required|wish_audio_not_allowed|CHECK constraint failed|UNIQUE constraint failed|program_reference_exists|program_locked|invalid_program_revision|invalid_program_item|script_locked|invalid_anchor|character_scope|character_archived|revision_frozen|role_category_mismatch/.test(message))throw new AppError(409,'数据状态已改变，请核对服务器版本后重试');
   throw error;
  }
 }

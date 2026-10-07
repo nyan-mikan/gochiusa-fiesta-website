@@ -1,3 +1,4 @@
+import {videoMp4} from './video-fixture.mjs';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 export async function accountFeatureChecks({request,owner,other,admin,root,localSql,form,origin}){
@@ -20,10 +21,10 @@ export async function accountFeatureChecks({request,owner,other,admin,root,local
  const draft=(await request('/api/submissions',create(),owner.cookie,'POST',201)).v;
  let detail=(await request('/api/submissions/'+draft.id,undefined,owner.cookie)).v;
  await request('/api/submissions/'+draft.id,{expectedVersion:1,form},owner.cookie,'PATCH');detail=(await request('/api/submissions/'+draft.id,undefined,owner.cookie)).v;
- const bytes=new Uint8Array([1,2,3,4]),upload=(await request('/api/submissions/'+draft.id+'/uploads',{filename:'删除测试.bin',size:bytes.length,content_type:'application/octet-stream'},owner.cookie,'POST',201)).v;
+ const bytes=videoMp4(),upload=(await request('/api/submissions/'+draft.id+'/uploads',{filename:'删除测试.mp4',size:bytes.length,content_type:'video/mp4'},owner.cookie,'POST',201)).v;
  const part=await fetch(origin+'/api/uploads/'+upload.id+'/parts/1',{method:'PUT',headers:{Cookie:owner.cookie,Origin:origin,'X-Requested-With':'usagi'},body:bytes});assert.equal(part.status,200);
  await request('/api/uploads/'+upload.id+'/complete',{},owner.cookie);await request('/api/submissions/'+draft.id,{expectedVersion:detail.submission.version,form:{...form,upload_id:upload.id}},owner.cookie,'PATCH');detail=(await request('/api/submissions/'+draft.id,undefined,owner.cookie)).v;
- const receiving=(await request('/api/submissions/'+draft.id+'/uploads',{filename:'正在上传.bin',size:4,content_type:'application/octet-stream'},owner.cookie,'POST',201)).v;
+ const receiving=(await request('/api/submissions/'+draft.id+'/uploads',{filename:'正在上传.mp4',size:4,content_type:'video/mp4'},owner.cookie,'POST',201)).v;
  const deletion={expectedVersion:detail.submission.version,operation_id:randomUUID()};
  await request('/api/submissions/'+draft.id,deletion,other.cookie,'DELETE',404);await request('/api/submissions/'+draft.id,deletion,root.cookie,'DELETE',403);
  await request('/api/submissions/'+draft.id,{...deletion,expectedVersion:1},owner.cookie,'DELETE',409);
@@ -31,7 +32,7 @@ export async function accountFeatureChecks({request,owner,other,admin,root,local
  for(const cookie of [owner.cookie,root.cookie])await request('/api/submissions/'+draft.id,undefined,cookie,'GET',404);
  for(const cookie of [owner.cookie,root.cookie])await request('/api/uploads/'+upload.id+'/download',undefined,cookie,'GET',404);
  await request('/api/uploads/'+receiving.id+'/complete',{},owner.cookie,'POST',404);
- await request('/api/submissions/'+draft.id+'/uploads',{filename:'恢复.bin',size:4,content_type:'application/octet-stream'},owner.cookie,'POST',404);
+ await request('/api/submissions/'+draft.id+'/uploads',{filename:'恢复.mp4',size:4,content_type:'video/mp4'},owner.cookie,'POST',404);
  await request('/api/submissions/'+draft.id,{expectedVersion:deletion.expectedVersion,form},owner.cookie,'PATCH',404);
  assert.ok(!(await request('/api/drafts',undefined,owner.cookie)).v.some(r=>r.id===draft.id));assert.ok(!(await request('/api/submissions?event='+event.id,undefined,owner.cookie)).v.items.some(r=>r.id===draft.id));
  assert.ok(localSql(`SELECT deleted_at FROM submissions WHERE id='${draft.id}'`)[0].results[0].deleted_at);

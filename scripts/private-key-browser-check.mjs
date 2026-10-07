@@ -1,3 +1,4 @@
+import {videoDeliveryBrowserChecks} from './video-delivery-browser-checks.mjs';
 import {paragraphBrowserChecks} from './script-paragraph-browser-checks.mjs';
 import {speakerBrowserChecks} from './script-speaker-browser-checks.mjs';
 import {characterListBrowserChecks} from './character-list-browser-checks.mjs';
@@ -71,6 +72,7 @@ try{
  await valueHelpBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
  await characterListBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
  await characterAvatarBrowserChecks({evaluate,cmd,click,fill,wait,visible,origin});
+ await videoDeliveryBrowserChecks({evaluate,cmd,click,wait,visible,origin});
  await speakerBrowserChecks({evaluate,cmd,click,fill,wait,origin});
   await languageBrowserChecks({evaluate,cmd,fill,wait,visible,origin,fixture:reviewFixture});
  await paragraphBrowserChecks({evaluate,cmd,fill,wait,origin,fixture:reviewFixture});

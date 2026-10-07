@@ -16,7 +16,7 @@ export const completeSubmission = submissionDraft.superRefine((value, ctx) => {
  if (!programTypes.includes(value.type)) ctx.addIssue({code:'custom',path:['type'],message:'请选择节目类型'});
  if (value.duration_seconds<1) ctx.addIssue({code:'custom',path:['duration_seconds'],message:'请填写节目时长'});
  if(value.type==='其他'&&!value.type_other)ctx.addIssue({code:'custom',path:['type_other'],message:'请说明具体节目类型'});
- if(value.delivery_url)try { const url=new URL(value.delivery_url); if(url.username || url.password || url.protocol!=='https:') throw new Error(); } catch {ctx.addIssue({code:'custom',path:['delivery_url'],message:'链接格式无效'});}
+ if(value.delivery_url||value.access_notes)ctx.addIssue({code:'custom',path:['delivery_url'],message:'作品交付只支持上传视频，请移除原预览链接和访问说明'});
  for(const key of ['contact','uploader'] as const) {
   if(!value[key].name || !uid.safeParse(value[key].uid).success) ctx.addIssue({code:'custom',path:[key],message:'名称与数字 UID 必填'});
  }
@@ -43,7 +43,7 @@ export interface Submission {id:string;event_id:string;owner_user_id:string;publ
 export interface Revision {id:string;submission_id:string;revision_no:number;title:string;type:string;description:string;duration_seconds:number;category_id:string|null;feedback_email:string;delivery_url:string;access_notes:string;notes:string;submitted_at:string|null;created_at:string}
 export interface Review {id:string;revision_id:string;action:string;reason:string;internal_note?:string;created_at:string;reviewer_id?:string}
 export interface UploadedFile {id:string;filename:string;size:number;content_type:string;state:string}
-export interface Detail {category_name?:string|null;staff_limit?:number|null;staff_limit_verified?:boolean;warnings?:string[];submission:Submission;revision:Revision;form:SubmissionDraft;uploaded_file?:UploadedFile|null;reviews:Review[];revisions:Revision[];role_labels:Record<string,string>;notifications?:{id:string;status:string;attempts:number;last_error:string|null}[]}
+export interface Detail {category_name?:string|null;staff_limit?:number|null;staff_limit_verified?:boolean;warnings?:string[];submission:Submission;revision:Revision;form:SubmissionDraft;uploaded_file?:UploadedFile|null;delivery_at?:string|null;reviews:Review[];revisions:Revision[];role_labels:Record<string,string>;notifications?:{id:string;status:string;attempts:number;last_error:string|null}[]}
 export interface Program {id:string;event_id:string;version:number;change_seq:number;starts_at:string|null;locked:number}
 export interface ProgramItem {id:string;program_id?:string;position:number;revision_id:string|null;custom_name:string|null;custom_type:string|null;custom_duration:number|null;notes:string;title?:string;type?:string;duration_seconds?:number}
 export interface ScriptDocument {id:string;program_id:string;structure_version:number;locked:number;finalized_program_version:number|null;finalized_seq:number|null}

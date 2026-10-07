@@ -18,7 +18,7 @@ const base='/api/admin/events/'+event.id;
 await ok('/api/admin/bili-role-config',{category_id:null,name:'审计专用分区',platform_id:null,staff_limit:1,verified:true,evidence_url:'https://example.test/audit',labels:['演唱']},'PUT');
 const config=await ok('/api/form-config'),cat=config.categories.find(c=>c.name==='审计专用分区'),role=config.roles.find(r=>r.category_id===cat.id);
 const draft=await ok('/api/submissions',{event_id:event.id,operation_id:randomUUID()});
-const form={title:'审计已提交作品',type:'翻唱',description:'隔离测试资料',duration_seconds:60,category_id:cat.id,delivery_url:'https://example.test/video',access_notes:'',notes:'',contact:{name:'测试甲',uid:'1001'},uploader:{name:'测试甲',uid:'1001'},contributors:[{name:'测试甲',uid:'1001',role_option_id:role.id,work_detail:''},{name:'测试乙',uid:'1002',role_option_id:role.id,work_detail:''}]};
+const form={title:'审计已提交作品',type:'翻唱',description:'隔离测试资料',duration_seconds:60,category_id:cat.id,delivery_url:'',access_notes:'',notes:'',contact:{name:'测试甲',uid:'1001'},uploader:{name:'测试甲',uid:'1001'},contributors:[{name:'测试甲',uid:'1001',role_option_id:role.id,work_detail:''},{name:'测试乙',uid:'1002',role_option_id:role.id,work_detail:''}]};
 const saved=await ok('/api/submissions/'+draft.id,{expectedVersion:1,form},'PATCH');
 await ok('/api/submissions/'+draft.id+'/submit',{expectedVersion:saved.version,operation_id:randomUUID(),confirmed:true});
 const drafts=await ok('/api/drafts'),detail=await ok('/api/submissions/'+draft.id);

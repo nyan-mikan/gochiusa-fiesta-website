@@ -1,3 +1,5 @@
+import {videoDeliveryChecks} from './video-delivery-checks.mjs';
+import {videoMp4} from './video-fixture.mjs';
 import {paragraphChecks} from './script-paragraph-checks.mjs';
 import {languageChecks} from './script-language-checks.mjs';
 import {languageFixture,reviewFixtureVars} from './script-language-fixture.mjs';
@@ -99,11 +101,11 @@ try{
  }
  const createOp={event_id:event.id,operation_id:randomUUID()};const {v:created}=await request('/api/submissions',createOp,owner.cookie,'POST',201);const again=await request('/api/submissions',createOp,owner.cookie,'POST',201);assert.equal(created.id,again.v.id);
  let d=(await request('/api/submissions/'+created.id,undefined,owner.cookie)).v;await request('/api/submissions/'+created.id,undefined,other.cookie,'GET',404);
- const form={title:'=测试曲 '+suffix,type:'翻唱',description:'集成测试作品简介',duration_seconds:125,category_id:category.id,delivery_url:'https://example.test/movie',access_notes:'仅管理员可见提取码',notes:'备注',contact:{name:'负责人',uid:'123456789012345678901234567890'},uploader:{name:'主投稿',uid:'987654321'},contributors:[{name:'负责人',uid:'123456789012345678901234567890',role_option_id:role.id,work_detail:'演唱与混音'}]};
- // Preview links are optional even without an upload; nonempty links still need safe HTTPS URLs.
+ const form={title:'=测试曲 '+suffix,type:'翻唱',description:'集成测试作品简介',duration_seconds:125,category_id:category.id,delivery_url:'',access_notes:'',notes:'备注',contact:{name:'负责人',uid:'123456789012345678901234567890'},uploader:{name:'主投稿',uid:'987654321'},contributors:[{name:'负责人',uid:'123456789012345678901234567890',role_option_id:role.id,work_detail:'演唱与混音'}]};
+ // Video delivery can follow submission; links and access notes are no longer accepted.
  const optionalDraft=(await request('/api/submissions',{event_id:event.id,operation_id:randomUUID()},owner.cookie,'POST',201)).v,optionalPath='/api/submissions/'+optionalDraft.id;let optionalDetail=(await request(optionalPath,undefined,owner.cookie)).v;
- for(const delivery_url of ['http://example.test/movie','not-a-link','https://user:password@example.test/movie']){
-  await request(optionalPath,{expectedVersion:optionalDetail.submission.version,form:{...form,delivery_url}},owner.cookie,'PATCH');optionalDetail=(await request(optionalPath,undefined,owner.cookie)).v;
+ for(const delivery_url of ['https://example.test/movie','http://example.test/movie','not-a-link','https://user:password@example.test/movie']){
+  await request(optionalPath,{expectedVersion:optionalDetail.submission.version,form:{...form,delivery_url}},owner.cookie,'PATCH',422);
   await request(optionalPath+'/submit',{expectedVersion:optionalDetail.submission.version,operation_id:randomUUID(),confirmed:true},owner.cookie,'POST',422);
  }
  await request(optionalPath,{expectedVersion:optionalDetail.submission.version,form:{...form,delivery_url:''}},owner.cookie,'PATCH');optionalDetail=(await request(optionalPath,undefined,owner.cookie)).v;
@@ -178,7 +180,7 @@ try{
  await request(upBase+'/uploads',{filename:'空.mp4',size:0,content_type:'video/mp4'},owner.cookie,'POST',422);
  await request(upBase+'/uploads',{filename:'越权.mp4',size:12,content_type:'video/mp4'},admin.cookie,'POST',404);
  const maxFile=(await createFile(1000000000)).v;await request('/api/uploads/'+maxFile.id,{},owner.cookie,'DELETE');
- const file=(await createFile()).v;const data=Buffer.alloc(file.part_size+27,65);data.fill(66,file.part_size);
+ const file=(await createFile()).v;const data=videoMp4(file.part_size+27);data.fill(66,file.part_size);
  async function part(number,body,cookie=owner.cookie,status=200){const res=await fetch(origin+'/api/uploads/'+file.id+'/parts/'+number,{method:'PUT',headers:{Cookie:cookie,Origin:origin,'X-Requested-With':'usagi','Content-Type':'application/octet-stream'},body});assert.equal(res.status,status,await res.text());checks++;}
  await part(1,Buffer.alloc(file.part_size+1),owner.cookie,413);await part(1,Buffer.alloc(5),owner.cookie,422);await part(1,data.subarray(0,file.part_size),fileOther.cookie,404);
  await part(3,Buffer.alloc(27),owner.cookie,422);await request('/api/uploads/'+file.id+'/complete',{},owner.cookie,'POST',422);
@@ -202,6 +204,7 @@ try{
  await request(upBase,{expectedVersion:upDetail.submission.version,form:upForm},owner.cookie,'PATCH');upDetail=(await request(upBase,undefined,owner.cookie)).v;assert.equal(upDetail.uploaded_file.id,file.id);assert.equal(upDetail.form.contributors[0].role_other,'道具设计');await submitFile();upDetail=(await request(upBase,undefined,owner.cookie)).v;
  await request(upBase,{expectedVersion:upDetail.submission.version,form:{...upForm,upload_id:null}},owner.cookie,'PATCH',409);
  await request('/api/uploads/'+file.id,{},owner.cookie,'DELETE',409);
+ await videoDeliveryChecks({request,origin,event,form,owner,admin,other,localSql});
  await characterListChecks(async(path,data,method=data===undefined?'GET':'POST',status=200)=>(await request(path,data,admin.cookie,method,status)).v,base);
  await characterAvatarChecks({request,base,adminCookie:admin.cookie,ownerCookie:owner.cookie,origin});
  const characterSnapshot=(await request(base+'/characters',undefined,admin.cookie)).v;assert.equal(characterSnapshot.characters.filter(c=>c.kind==='builtin'&&!c.archived).length,11);assert.ok(characterSnapshot.characters.some(c=>c.id==='builtin-tippy'&&!c.archived));checks++;
