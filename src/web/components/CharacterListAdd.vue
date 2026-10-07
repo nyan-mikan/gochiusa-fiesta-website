@@ -53,7 +53,7 @@ async function add(){
    <label v-for="c in visible" :key="c.id" class="member-choice" :class="{selected:selected.includes(c.id)}"><input v-model="selected" type="checkbox" :value="c.id" :disabled="busy||unavailable||(!selected.includes(c.id)&&selected.length>=remaining)" :aria-label="'选择 '+(c.display_name??c.name)"><CharacterAvatar :character="c" class="member-avatar"/><span class="member-name"><strong>{{ c.display_name??c.name }}</strong><small v-if="c.japanese_name">{{ c.japanese_name }}</small><small v-if="c.hidden">已隐藏</small></span></label>
    <p v-if="!visible.length" class="empty">{{ candidates.length?'没有匹配的角色，请修改搜索。':'没有可添加的角色。可在角色库中新增角色。' }}</p>
   </div>
-  <div class="member-actions"><button type="button" :disabled="busy" @click="close">取消</button><button type="button" :disabled="busy" @click="refresh">刷新列表</button><button type="button" class="primary" :disabled="busy||conflict||unavailable||!selected.length||selected.length>remaining" @click="add">{{ busy?'正在处理…':'添加已选（'+selected.length+'）' }}</button></div>
+  <div class="dialog-actions member-actions"><button type="button" :disabled="busy" @click="close">取消</button><button type="button" :disabled="busy" @click="refresh">刷新列表</button><button type="button" class="primary" :disabled="busy||conflict||unavailable||!selected.length||selected.length>remaining" @click="add">{{ busy?'正在处理…':'添加已选（'+selected.length+'）' }}</button></div>
  </section>
 </ModalDialog></template>
 
