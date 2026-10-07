@@ -8,7 +8,27 @@ export const avatarInput=z.object({content_type:z.enum(['image/png','image/jpeg'
 export type CharacterAvatarInput=z.infer<typeof avatarInput>;
 
 // Register official images only after verifying their source and character identity.
-export const officialPortraits:Readonly<Record<string,{url:string;source:string;position?:string}>>={};
+export const officialPortraits:Readonly<Record<string,{url:string;source:string;position?:string}>>={
+ 'builtin-cocoa':{url:'/images/characters/cocoa-f231547fa809.png',source:'https://gochiusa.com/special/v2023.html',position:'50% 50%'},
+ 'builtin-chino':{url:'/images/characters/chino-7385e3f1f471.png',source:'https://gochiusa.com/special/v2023.html',position:'50% 50%'},
+ 'builtin-rize':{url:'/images/characters/rize-39977474aaca.png',source:'https://gochiusa.com/special/v2023.html',position:'50% 50%'},
+ 'builtin-chiya':{url:'/images/characters/chiya-8d10a51d10de.png',source:'https://gochiusa.com/special/v2023.html',position:'50% 50%'},
+ 'builtin-syaro':{url:'/images/characters/syaro-009990b943a4.png',source:'https://gochiusa.com/special/v2023.html',position:'50% 50%'},
+ 'builtin-maya':{url:'/images/characters/maya-bb95f1e41f08.png',source:'https://gochiusa.com/special/v2023.html',position:'50% 50%'},
+ 'builtin-megu':{url:'/images/characters/megu-4c097d52ff59.png',source:'https://gochiusa.com/special/v2023.html',position:'50% 50%'},
+ 'builtin-fuyu':{url:'/images/characters/fuyu-5089887dbdaf.png',source:'https://gochiusa.com/special/v2023.html',position:'50% 50%'},
+ 'builtin-natsume':{url:'/images/characters/natsume-6356fd12781d.png',source:'https://gochiusa.com/special/v2023.html',position:'50% 50%'},
+ 'builtin-elu':{url:'/images/characters/elu-aee40e3b8175.png',source:'https://gochiusa.com/special/v2023.html',position:'50% 50%'},
+ 'builtin-tippy':{url:'/images/characters/tippy-d1af6aa9271e.png',source:'https://gochiusa.com/chara/tippy.html',position:'50% 20%'},
+ 'builtin-aoyama':{url:'/images/characters/aoyama-750f245f2903.png',source:'https://gochiusa.com/chara/aoyama.html',position:'50% 20%'},
+ 'builtin-rin':{url:'/images/characters/rin-255c6386cf18.png',source:'https://gochiusa.com/chara/rin.html',position:'50% 20%'},
+ 'builtin-mocha':{url:'/images/characters/mocha-cbfebc5bc320.png',source:'https://gochiusa.com/chara/mocha.html',position:'50% 20%'},
+ 'builtin-takahiro':{url:'/images/characters/takahiro-f519b4328c73.png',source:'https://gochiusa.com/chara/takahiro.html',position:'50% 20%'},
+ 'builtin-cocoa-mother':{url:'/images/characters/cocoa-mother-e7e33bab3ff6.png',source:'https://gochiusa.com/chara/cocoas_mother.html',position:'50% 20%'},
+ 'builtin-rize-father':{url:'/images/characters/rize-father-0bdba885beeb.png',source:'https://gochiusa.com/chara/rizes_father.html',position:'50% 20%'},
+ 'builtin-chiya-grandmother':{url:'/images/characters/chiya-grandmother-15df0d36c765.png',source:'https://gochiusa.com/chara/chiyas_grand_mother.html',position:'50% 20%'},
+ 'builtin-yura':{url:'/images/characters/yura-7e40b5b07b99.png',source:'https://gochiusa.com/chara/yura.html',position:'50% 20%'}
+};
 
 export function imageDimensions(bytes:Uint8Array,type:string):[number,number]|null{
  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),text=(start:number,length:number)=>String.fromCharCode(...bytes.subarray(start,start+length));

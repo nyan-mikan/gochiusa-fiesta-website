@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID,createHash} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
 import {avatarPng} from './character-avatar-fixture.mjs';
 
 export async function characterAvatarChecks({request,base,adminCookie,ownerCookie,origin}){
@@ -8,6 +9,16 @@ export async function characterAvatarChecks({request,base,adminCookie,ownerCooki
  const read=async id=>(await request(base+'/characters',undefined,adminCookie)).v.characters.find(c=>c.id===id);
  const add=(id,extra={})=>({operation_id:randomUUID(),type:'character.add',id,name:'头像验证 '+id.slice(0,8),color:'#80636f',list_id:null,...extra});
  const update=(version,extra={})=>({operation_id:randomUUID(),type:'character.update',id,expectedVersion:version,name:'头像验证',color:'#80636f',archived:false,...extra});
+ const portraits=JSON.parse(await readFile(new URL('../docs/character-portraits.json',import.meta.url),'utf8'));
+ const builtin=(await request(base+'/characters',undefined,adminCookie)).v.characters;
+ assert.equal(builtin.filter(c=>c.kind==='builtin'&&!c.archived).length,11);
+ for(const portrait of portraits){
+  const character=builtin.find(c=>c.id===portrait.character_id);assert.ok(character,'verified portrait belongs to an existing character');assert.equal(character.avatar_url,portrait.path);assert.equal(character.avatar_position,portrait.position);
+  const stored=await readFile(new URL('../public'+portrait.path,import.meta.url));assert.equal(createHash('sha256').update(stored).digest('hex'),portrait.sha256);assert.equal(stored.readUInt32BE(16),portrait.width);assert.equal(stored.readUInt32BE(20),portrait.height);
+  const served=await request(portrait.path,undefined,'');assert.match(served.r.headers.get('content-type'),/^image\/png/);
+  const response=await fetch(origin+portrait.path);assert.equal(response.status,200);assert.deepEqual(Buffer.from(await response.arrayBuffer()),stored,'built assets serve the verified original PNG rather than the SPA fallback');
+ }
+ assert.ok(builtin.filter(c=>c.kind==='builtin'&&!c.archived).every(c=>portraits.some(p=>p.character_id===c.id)),'all currently available builtin characters have verified portraits');
  const plain=randomUUID();await call(add(plain));assert.equal((await read(plain)).avatar_url,undefined,'portrait remains optional');
  const create=add(id,{avatar}),ack=await call(create);assert.deepEqual((await call(create)).v,ack.v);let character=await read(id);assert.equal(character.version,1);let url=character.avatar_url;assert.match(url,/^\/api\/character-avatars\//);assert.ok(!JSON.stringify(character).includes(avatar.data));
  const photo=await request(url,undefined,adminCookie);assert.equal(photo.r.headers.get('content-type'),'image/png');assert.equal(photo.r.headers.get('cache-control'),'no-store');
@@ -23,5 +34,5 @@ export async function characterAvatarChecks({request,base,adminCookie,ownerCooki
  await call(update(2,{avatar:null}),409);assert.equal((await read(id)).avatar_url,url,'stale removal cannot erase the winning portrait');
  const attempts=await Promise.all([null,avatar].map(value=>call(update(3,{avatar:value}),[200,409])));assert.equal(attempts.filter(r=>r.r.status===200).length,1);assert.equal(attempts.filter(r=>r.r.status===409).length,1);character=await read(id);assert.equal(character.version,4);
  await call(update(4,{avatar:null}));assert.equal((await read(id)).avatar_url,undefined);await request(url,undefined,adminCookie,'GET',404);
- console.log('PASS: optional avatar creation/persistence, actual private R2 bytes and image MIME, idempotency, authentication/module access, event isolation, invalid/SVG/mismatched/oversized-dimension rejection, atomic create failure, preserved avatars on normal edits, replacement and old-image invalidation, stale and concurrent changes, and removal.');
+ console.log('PASS: 19 verified official PNGs served byte-for-byte, all 11 active builtin identities, optional avatar creation/persistence, actual private R2 bytes and image MIME, idempotency, authentication/module access, event isolation, invalid/SVG/mismatched/oversized-dimension rejection, atomic create failure, preserved avatars on normal edits, replacement and old-image invalidation, stale and concurrent changes, and removal.');
 }
