@@ -10,6 +10,9 @@ export async function characterListChecks(request,base){
  const payload=(members,l=list)=>({operation_id:randomUUID(),type:'list.update',id,expectedVersion:l.version,name:l.name,archived:!!l.archived,position:l.position,members});
  const batch=payload(['builtin-chino','builtin-cocoa','builtin-rize']);
  const ack=await request(operations,batch);assert.deepEqual(await request(operations,batch),ack);list=await read();assert.deepEqual(list.members,batch.members);assert.equal(list.version,2);
+ const reorder=payload(['builtin-cocoa','builtin-chino','builtin-rize']);const reordered=await request(operations,reorder);assert.deepEqual(await request(operations,reorder),reordered);list=await read();assert.deepEqual(list.members,reorder.members);assert.equal(list.version,3);
+ await request(operations,{...reorder,operation_id:randomUUID(),members:batch.members},'POST',409);assert.deepEqual((await read()).members,reorder.members,'stale reorder leaves current order intact');
+ await request(operations,payload(batch.members));list=await read();assert.deepEqual(list.members,batch.members);assert.equal(list.version,4,'next reorder uses a fresh version');
  await request(operations,{...batch,operation_id:randomUUID(),members:['builtin-maya']},'POST',409);assert.deepEqual((await read()).members,batch.members);
  await request(operations,payload(['builtin-chino','builtin-chino']),'POST',422);
  const foreignEvent=await request('/api/admin/events',{name:'列表隔离 '+randomUUID().slice(0,8),year:2027,timezone:'Asia/Shanghai',opens_at:null,closes_at:null,active:false,submissions_open:false,wishes_open:false});
