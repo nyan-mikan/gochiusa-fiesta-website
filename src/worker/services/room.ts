@@ -184,7 +184,11 @@ export async function characterMutation(env:Env,sessionHash:string,eventId:strin
   statements.push(sql(env.DB,'INSERT INTO character_lists(id,event_id,name,position) SELECT ?,?,?,COALESCE(MAX(position),-1)+1 FROM character_lists WHERE event_id=?',op.id,eventId,op.name,eventId));result.version=1;
  }else{
   if(new Set(op.members).size!==op.members.length)throw new AppError(422,'角色不能重复');
-  statements.push(guard(env.DB,key+'-entity','EXISTS(SELECT 1 FROM character_lists WHERE id=? AND event_id=? AND version=?)',op.id,eventId,op.expectedVersion),sql(env.DB,'UPDATE character_lists SET name=?,archived=?,position=?,version=version+1 WHERE id=?',op.name,Number(op.archived),op.position,op.id),sql(env.DB,'DELETE FROM character_list_members WHERE list_id=?',op.id));
+  statements.push(guard(env.DB,key+'-entity',`EXISTS(SELECT 1 FROM character_lists WHERE id=? AND event_id=? AND version=?) AND NOT EXISTS(
+   SELECT 1 FROM json_each(?) chosen WHERE NOT EXISTS(
+    SELECT 1 FROM characters c WHERE c.id=chosen.value AND (c.event_id IS NULL OR c.event_id=?) AND
+    ((c.archived=0 AND c.id<>'aux-narrator') OR EXISTS(SELECT 1 FROM character_list_members m WHERE m.list_id=? AND m.character_id=c.id))
+   ))`,op.id,eventId,op.expectedVersion,JSON.stringify(op.members),eventId,op.id),sql(env.DB,'UPDATE character_lists SET name=?,archived=?,position=?,version=version+1 WHERE id=?',op.name,Number(op.archived),op.position,op.id),sql(env.DB,'DELETE FROM character_list_members WHERE list_id=?',op.id));
   op.members.forEach((char,i)=>statements.push(sql(env.DB,'INSERT INTO character_list_members VALUES(?,?,?)',op.id,char,i)));result.version=op.expectedVersion+1;
  }
  statements.push(cleanup(env.DB,key+'-entity'),...end(env,user,p,key,op.operation_id,old.hash,result));await atomic(env.DB,statements);return result;
