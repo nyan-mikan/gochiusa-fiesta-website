@@ -1,19 +1,20 @@
 <script setup lang="ts">
-import {onMounted,onBeforeUnmount,ref} from 'vue';
+import {onMounted,onBeforeUnmount,ref,computed,watch} from 'vue';
 import {onBeforeRouteLeave} from 'vue-router';
 import type {User} from '../../shared/models';
 import {api,session} from '../lib/api';
 import {generateLoginKey,type KeyChallenge,type KeyInfo} from '../lib/private-key';
 import {confirmAction} from '../lib/dialog';
 const nickname=ref(session.user?.nickname??''),profileBusy=ref(false),profileError=ref(''),profileNotice=ref('');
-async function saveNickname(){profileBusy.value=true;profileError.value='';profileNotice.value='';try{const response=await api<{user:User}>('/api/account/profile',{nickname:nickname.value},'PUT');session.user=response.user;nickname.value=response.user.nickname;profileNotice.value='昵称已保存';}catch(e){profileError.value=(e as Error).message;}finally{profileBusy.value=false;}}
+const savedNickname=ref(nickname.value),profileDirty=computed(()=>nickname.value!==savedNickname.value);watch(nickname,()=>profileNotice.value='',{flush:'sync'});
+async function saveNickname(){if(profileBusy.value)return;profileBusy.value=true;profileError.value='';profileNotice.value='';try{const response=await api<{user:User}>('/api/account/profile',{nickname:nickname.value},'PUT');session.user=response.user;nickname.value=response.user.nickname;savedNickname.value=nickname.value;profileNotice.value='昵称已保存';}catch(e){profileError.value=(e as Error).message;}finally{profileBusy.value=false;}}
 const current=ref<KeyInfo|null>(null),loading=ref(true),busy=ref(false),challenge=ref<KeyChallenge|null>(null),code=ref(''),accepted=ref(false),downloadReady=ref(false),downloaded=ref(false),error=ref(''),cooldown=ref(0);
 let privateFile:string|null=null,timer:ReturnType<typeof setInterval>|undefined;
 onMounted(async()=>{try{current.value=(await api<{key:KeyInfo|null}>('/api/account/key')).key;}catch(e){error.value=(e as Error).message;}finally{loading.value=false;}});
-function warnLeaving(event:BeforeUnloadEvent){if(privateFile){event.preventDefault();event.returnValue='';}}
+function warnLeaving(event:BeforeUnloadEvent){if(privateFile||profileDirty.value||profileBusy.value){event.preventDefault();event.returnValue='';}}
 window.addEventListener('beforeunload',warnLeaving);
 onBeforeUnmount(()=>{privateFile=null;clearInterval(timer);window.removeEventListener('beforeunload',warnLeaving);});
-onBeforeRouteLeave(async()=>!privateFile||await confirmAction('私钥还没有下载。离开后将无法再次下载，需要重新验证邮箱并生成新私钥。仍要离开吗？'));
+onBeforeRouteLeave(async()=>{if(profileBusy.value||busy.value)return false;const warnings=[profileDirty.value?'昵称尚未保存，离开后会放弃修改。':'',privateFile?'私钥还没有下载。离开后将无法再次下载，需要重新验证邮箱并生成新私钥。':''].filter(Boolean);return !warnings.length||await confirmAction(warnings.join('\n')+'\n仍要离开吗？');});
 async function send(){
  if(busy.value||downloadReady.value)return;busy.value=true;error.value='';
  try{challenge.value=await api<KeyChallenge>('/api/account/key/code',{});code.value='';cooldown.value=60;clearInterval(timer);timer=setInterval(()=>{cooldown.value=Math.max(0,cooldown.value-1);if(!cooldown.value)clearInterval(timer);},1000);}
@@ -36,7 +37,7 @@ function download(){
  <div class="page account-page">
   <header class="page-head"><div><h1>账号设置</h1><p class="muted">{{ session.user?.email }}</p></div></header>
   <section class="key-card profile-card">
-   <h2>昵称</h2><form id="account-profile-form" @submit.prevent="saveNickname"><FieldLabel>用户昵称<input v-model="nickname" maxlength="40" autocomplete="nickname" placeholder="设置希望展示的名字" :disabled="profileBusy"></FieldLabel><p class="hint">最多 40 字，留空时使用邮箱前缀。更改昵称不会修改已提交的祝福语署名。</p></form><p v-if="profileError" class="alert error" role="alert">{{ profileError }}</p><p v-if="profileNotice" class="alert success" role="status">{{ profileNotice }}</p>
+   <h2>昵称</h2><form id="account-profile-form" @submit.prevent="saveNickname"><FieldLabel>用户昵称<input v-model="nickname" maxlength="40" autocomplete="nickname" placeholder="设置希望展示的名字" :disabled="profileBusy"></FieldLabel><p class="hint">最多 40 字，留空时使用邮箱前缀。更改昵称不会修改已提交的祝福语署名。</p></form><p v-if="profileDirty" class="hint" role="status">昵称有未保存的修改，请点击「保存昵称」。</p><p v-if="profileError" class="alert error" role="alert">{{ profileError }}</p><p v-if="profileNotice" class="alert success" role="status">{{ profileNotice }}</p>
   </section>
   <section class="key-card private-key-card">
    <h2>私钥登录</h2>
@@ -65,7 +66,7 @@ function download(){
    </template>
    <p v-if="error" class="alert error" role="alert">{{ error }}</p>
   </section>
- <PageActions><button v-if="downloadReady" type="button" @click="download">下载私钥（仅一次）</button><template v-else-if="challenge"><button type="button" :disabled="busy||cooldown>0" @click="send">{{ cooldown?cooldown+' 秒后可重发':'重新发送验证码' }}</button><button type="submit" form="account-key-form" :disabled="busy||!accepted">{{ busy?'正在生成…':current?'验证并更换私钥':'验证并生成私钥' }}</button></template><button v-else type="button" data-action="key-send" :disabled="loading||busy||cooldown>0" @click="send">{{ busy?'正在发送…':cooldown?cooldown+' 秒后可重新验证':current?'验证邮箱，更换私钥':'验证邮箱，生成私钥' }}</button><button class="primary" type="submit" form="account-profile-form" :disabled="profileBusy">{{ profileBusy?'正在保存…':'保存昵称' }}</button></PageActions>
+ <PageActions :status="profileDirty?'昵称有未保存的修改':profileNotice"><button v-if="downloadReady" type="button" @click="download">下载私钥（仅一次）</button><template v-else-if="challenge"><button type="button" :disabled="busy||cooldown>0" @click="send">{{ cooldown?cooldown+' 秒后可重发':'重新发送验证码' }}</button><button type="submit" form="account-key-form" :disabled="busy||!accepted">{{ busy?'正在生成…':current?'验证并更换私钥':'验证并生成私钥' }}</button></template><button v-else type="button" data-action="key-send" :disabled="loading||busy||cooldown>0" @click="send">{{ busy?'正在发送…':cooldown?cooldown+' 秒后可重新验证':current?'验证邮箱，更换私钥':'验证邮箱，生成私钥' }}</button><button class="primary" type="submit" form="account-profile-form" :disabled="profileBusy">{{ profileBusy?'正在保存…':'保存昵称' }}</button></PageActions>
  </div>
 </template>
 <style scoped>

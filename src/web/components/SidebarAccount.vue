@@ -57,7 +57,9 @@ const roleName = computed(() => props.user?.is_super_admin ? '超级管理员' :
 @media (max-width: 760px) {
   .sidebar-account { margin-top: 12px; padding-top: 0; grid-template-columns: minmax(0, 1fr); }
   .logout-card { min-height: 60px; padding: 10px 12px; }
-  .account-card summary { min-height: 60px; }
+  .account-card summary { min-height:44px;padding:5px; }
+  .account-label { display:none; }
+  .account-menu { left:auto;width:210px; }
   .account-avatar { width: 32px; height: 32px; }
   .account-menu { top: calc(100% + 8px); bottom: auto; }
 }

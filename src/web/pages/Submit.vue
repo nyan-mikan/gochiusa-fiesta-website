@@ -53,7 +53,7 @@ window.addEventListener('beforeunload',leave);onBeforeUnmount(()=>{if(timer)clea
     <template v-else>
 
       <p v-if="d" class="muted mono">{{ d.submission.public_number }} · 修订 {{ d.revision.revision_no }}</p>
-      <section v-if="d?.reviews.some(r=>r.action!=='approved')" class="alert warning"><h2>审核反馈</h2><p v-for="r in d.reviews.filter(r=>r.action!=='approved')" :key="r.id">{{ r.reason }} <small>{{ displayTime(r.created_at) }}</small></p></section>
+      <section v-if="d?.submission.status==='rejected'&&d.reviews[0]" class="alert warning"><h2>本次需要修改</h2><p>{{ d.reviews[0].reason }}</p></section><details v-if="d?.reviews.length" class="paper"><summary>历史审核记录（{{ d.reviews.length }}）</summary><p v-for="r in d.reviews" :key="r.id"><strong>修订 {{ d.revisions.find(v=>v.id===r.revision_id)?.revision_no??'—' }} · {{ r.action==='reopen'?'退回修改':statusName(r.action) }}</strong><small>{{ displayTime(r.created_at) }}</small>{{ r.reason }}</p></details>
       <p v-for="warning in d?.warnings??[]" :key="warning" class="alert warning">{{ warning }}</p><p v-if="event&&!event.submissions_open" class="alert warning">当前征稿尚未开放或已经结束。你可以保存草稿，开放后再提交。</p>
       <form id="submission-form" novalidate @submit.prevent="check" @field-validated="validationShown&&collectErrors()"><fieldset :disabled="!editable">
         <section class="paper form-section" aria-labelledby="program-heading">
