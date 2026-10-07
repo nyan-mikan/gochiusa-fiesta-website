@@ -20,4 +20,6 @@
 
 2026-10-07 用户应用官网域名许可后，`gochiusa.com` 与 `www.gochiusa.com` 实际请求均返回 200，原网络阻塞已解除。已沿用环境代理及 TLS 下载原图，无需再次添加域名。
 
+已于 2026-10-07 正式发布：代码 `f3c034f`，production Worker 版本 `168b150a-1132-4b13-b472-b2f9869ca85d`。线上 19 张公式照的散列和尺寸均与原图一致，私有自定义头像接口拒绝匿名访问。头像功能没有新增数据库结构、额外服务或公共 R2 桶。
+
 验证入口：`scripts/character-avatar-checks.mjs` 接入 HTTP 集成，验证所有公式照的身份、散列、尺寸、PNG MIME 及构建后实际图片字节，避免遗漏图片时被单页 HTML 回退掩盖。`scripts/character-avatar-browser-checks.mjs` 接入完整 Chromium 回归，验证全部可用公式照解码、卡片/列表窗口、刷新、失败回退及 320/390/1440px 布局。自定义上传仍使用本地合成 PNG 与合成账号，不使用生产上传或真实账号。
